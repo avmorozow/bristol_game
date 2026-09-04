@@ -1,0 +1,722 @@
+[
+  {
+    "tap": 1,
+    "freeReward": 2,
+    "paidReward": 102,
+    "lossProbability": 0.0262
+  },
+  {
+    "tap": 2,
+    "freeReward": 3,
+    "paidReward": 103,
+    "lossProbability": 0.02620018077
+  },
+  {
+    "tap": 3,
+    "freeReward": 5,
+    "paidReward": 105,
+    "lossProbability": 0.02620102256
+  },
+  {
+    "tap": 4,
+    "freeReward": 6,
+    "paidReward": 106,
+    "lossProbability": 0.02620281785
+  },
+  {
+    "tap": 5,
+    "freeReward": 8,
+    "paidReward": 108,
+    "lossProbability": 0.02620578449
+  },
+  {
+    "tap": 6,
+    "freeReward": 10,
+    "paidReward": 110,
+    "lossProbability": 0.02621010508
+  },
+  {
+    "tap": 7,
+    "freeReward": 11,
+    "paidReward": 111,
+    "lossProbability": 0.02621594017
+  },
+  {
+    "tap": 8,
+    "freeReward": 13,
+    "paidReward": 113,
+    "lossProbability": 0.02622343473
+  },
+  {
+    "tap": 9,
+    "freeReward": 14,
+    "paidReward": 114,
+    "lossProbability": 0.026232722
+  },
+  {
+    "tap": 10,
+    "freeReward": 16,
+    "paidReward": 116,
+    "lossProbability": 0.02624392594
+  },
+  {
+    "tap": 11,
+    "freeReward": 18,
+    "paidReward": 118,
+    "lossProbability": 0.02625716297
+  },
+  {
+    "tap": 12,
+    "freeReward": 20,
+    "paidReward": 120,
+    "lossProbability": 0.02627254317
+  },
+  {
+    "tap": 13,
+    "freeReward": 22,
+    "paidReward": 122,
+    "lossProbability": 0.02629017122
+  },
+  {
+    "tap": 14,
+    "freeReward": 24,
+    "paidReward": 124,
+    "lossProbability": 0.02631014713
+  },
+  {
+    "tap": 15,
+    "freeReward": 26,
+    "paidReward": 126,
+    "lossProbability": 0.02633256684
+  },
+  {
+    "tap": 16,
+    "freeReward": 28,
+    "paidReward": 128,
+    "lossProbability": 0.02635752263
+  },
+  {
+    "tap": 17,
+    "freeReward": 30,
+    "paidReward": 130,
+    "lossProbability": 0.02638510356
+  },
+  {
+    "tap": 18,
+    "freeReward": 32,
+    "paidReward": 132,
+    "lossProbability": 0.02641539574
+  },
+  {
+    "tap": 19,
+    "freeReward": 34,
+    "paidReward": 134,
+    "lossProbability": 0.02644848265
+  },
+  {
+    "tap": 20,
+    "freeReward": 36,
+    "paidReward": 136,
+    "lossProbability": 0.02648444533
+  },
+  {
+    "tap": 21,
+    "freeReward": 39,
+    "paidReward": 139,
+    "lossProbability": 0.02652336261
+  },
+  {
+    "tap": 22,
+    "freeReward": 41,
+    "paidReward": 141,
+    "lossProbability": 0.02656531125
+  },
+  {
+    "tap": 23,
+    "freeReward": 43,
+    "paidReward": 143,
+    "lossProbability": 0.02661036613
+  },
+  {
+    "tap": 24,
+    "freeReward": 46,
+    "paidReward": 146,
+    "lossProbability": 0.02665860037
+  },
+  {
+    "tap": 25,
+    "freeReward": 49,
+    "paidReward": 149,
+    "lossProbability": 0.02671008542
+  },
+  {
+    "tap": 26,
+    "freeReward": 51,
+    "paidReward": 151,
+    "lossProbability": 0.02676489123
+  },
+  {
+    "tap": 27,
+    "freeReward": 54,
+    "paidReward": 154,
+    "lossProbability": 0.02682308627
+  },
+  {
+    "tap": 28,
+    "freeReward": 57,
+    "paidReward": 157,
+    "lossProbability": 0.02688473767
+  },
+  {
+    "tap": 29,
+    "freeReward": 60,
+    "paidReward": 160,
+    "lossProbability": 0.02694991128
+  },
+  {
+    "tap": 30,
+    "freeReward": 63,
+    "paidReward": 163,
+    "lossProbability": 0.02701867175
+  },
+  {
+    "tap": 31,
+    "freeReward": 66,
+    "paidReward": 166,
+    "lossProbability": 0.02709108256
+  },
+  {
+    "tap": 32,
+    "freeReward": 69,
+    "paidReward": 169,
+    "lossProbability": 0.02716720614
+  },
+  {
+    "tap": 33,
+    "freeReward": 72,
+    "paidReward": 172,
+    "lossProbability": 0.02724710384
+  },
+  {
+    "tap": 34,
+    "freeReward": 75,
+    "paidReward": 175,
+    "lossProbability": 0.02733083608
+  },
+  {
+    "tap": 35,
+    "freeReward": 79,
+    "paidReward": 179,
+    "lossProbability": 0.02741846231
+  },
+  {
+    "tap": 36,
+    "freeReward": 82,
+    "paidReward": 182,
+    "lossProbability": 0.02751004109
+  },
+  {
+    "tap": 37,
+    "freeReward": 86,
+    "paidReward": 186,
+    "lossProbability": 0.02760563014
+  },
+  {
+    "tap": 38,
+    "freeReward": 90,
+    "paidReward": 190,
+    "lossProbability": 0.02770528633
+  },
+  {
+    "tap": 39,
+    "freeReward": 94,
+    "paidReward": 194,
+    "lossProbability": 0.02780906578
+  },
+  {
+    "tap": 40,
+    "freeReward": 98,
+    "paidReward": 198,
+    "lossProbability": 0.02791702384
+  },
+  {
+    "tap": 41,
+    "freeReward": 102,
+    "paidReward": 202,
+    "lossProbability": 0.02802921514
+  },
+  {
+    "tap": 42,
+    "freeReward": 106,
+    "paidReward": 206,
+    "lossProbability": 0.0281456936
+  },
+  {
+    "tap": 43,
+    "freeReward": 110,
+    "paidReward": 211,
+    "lossProbability": 0.02826651249
+  },
+  {
+    "tap": 44,
+    "freeReward": 115,
+    "paidReward": 215,
+    "lossProbability": 0.02839172442
+  },
+  {
+    "tap": 45,
+    "freeReward": 120,
+    "paidReward": 220,
+    "lossProbability": 0.02852138139
+  },
+  {
+    "tap": 46,
+    "freeReward": 124,
+    "paidReward": 225,
+    "lossProbability": 0.0286555348
+  },
+  {
+    "tap": 47,
+    "freeReward": 129,
+    "paidReward": 230,
+    "lossProbability": 0.02879423544
+  },
+  {
+    "tap": 48,
+    "freeReward": 134,
+    "paidReward": 236,
+    "lossProbability": 0.02893753357
+  },
+  {
+    "tap": 49,
+    "freeReward": 140,
+    "paidReward": 241,
+    "lossProbability": 0.0290854789
+  },
+  {
+    "tap": 50,
+    "freeReward": 145,
+    "paidReward": 247,
+    "lossProbability": 0.02923812063
+  },
+  {
+    "tap": 51,
+    "freeReward": 151,
+    "paidReward": 254,
+    "lossProbability": 0.02939550744
+  },
+  {
+    "tap": 52,
+    "freeReward": 157,
+    "paidReward": 260,
+    "lossProbability": 0.02955768757
+  },
+  {
+    "tap": 53,
+    "freeReward": 163,
+    "paidReward": 267,
+    "lossProbability": 0.02972470883
+  },
+  {
+    "tap": 54,
+    "freeReward": 169,
+    "paidReward": 274,
+    "lossProbability": 0.02989661866
+  },
+  {
+    "tap": 55,
+    "freeReward": 175,
+    "paidReward": 281,
+    "lossProbability": 0.03007346421
+  },
+  {
+    "tap": 56,
+    "freeReward": 182,
+    "paidReward": 289,
+    "lossProbability": 0.03025529244
+  },
+  {
+    "tap": 57,
+    "freeReward": 189,
+    "paidReward": 296,
+    "lossProbability": 0.03044215032
+  },
+  {
+    "tap": 58,
+    "freeReward": 196,
+    "paidReward": 305,
+    "lossProbability": 0.03063408499
+  },
+  {
+    "tap": 59,
+    "freeReward": 204,
+    "paidReward": 313,
+    "lossProbability": 0.03083114411
+  },
+  {
+    "tap": 60,
+    "freeReward": 211,
+    "paidReward": 322,
+    "lossProbability": 0.03103337623
+  },
+  {
+    "tap": 61,
+    "freeReward": 219,
+    "paidReward": 332,
+    "lossProbability": 0.03124083133
+  },
+  {
+    "tap": 62,
+    "freeReward": 227,
+    "paidReward": 342,
+    "lossProbability": 0.03145356154
+  },
+  {
+    "tap": 63,
+    "freeReward": 236,
+    "paidReward": 352,
+    "lossProbability": 0.03167162206
+  },
+  {
+    "tap": 64,
+    "freeReward": 245,
+    "paidReward": 363,
+    "lossProbability": 0.03189507227
+  },
+  {
+    "tap": 65,
+    "freeReward": 254,
+    "paidReward": 374,
+    "lossProbability": 0.03212397727
+  },
+  {
+    "tap": 66,
+    "freeReward": 264,
+    "paidReward": 386,
+    "lossProbability": 0.03235840971
+  },
+  {
+    "tap": 67,
+    "freeReward": 273,
+    "paidReward": 398,
+    "lossProbability": 0.03259845206
+  },
+  {
+    "tap": 68,
+    "freeReward": 284,
+    "paidReward": 411,
+    "lossProbability": 0.03284419943
+  },
+  {
+    "tap": 69,
+    "freeReward": 294,
+    "paidReward": 425,
+    "lossProbability": 0.03309576307
+  },
+  {
+    "tap": 70,
+    "freeReward": 305,
+    "paidReward": 439,
+    "lossProbability": 0.03335327445
+  },
+  {
+    "tap": 71,
+    "freeReward": 317,
+    "paidReward": 454,
+    "lossProbability": 0.03361689033
+  },
+  {
+    "tap": 72,
+    "freeReward": 329,
+    "paidReward": 470,
+    "lossProbability": 0.03388679874
+  },
+  {
+    "tap": 73,
+    "freeReward": 341,
+    "paidReward": 486,
+    "lossProbability": 0.03416322607
+  },
+  {
+    "tap": 74,
+    "freeReward": 354,
+    "paidReward": 503,
+    "lossProbability": 0.03444644548
+  },
+  {
+    "tap": 75,
+    "freeReward": 367,
+    "paidReward": 522,
+    "lossProbability": 0.03473678674
+  },
+  {
+    "tap": 76,
+    "freeReward": 381,
+    "paidReward": 541,
+    "lossProbability": 0.0350346478
+  },
+  {
+    "tap": 77,
+    "freeReward": 395,
+    "paidReward": 561,
+    "lossProbability": 0.03534050814
+  },
+  {
+    "tap": 78,
+    "freeReward": 411,
+    "paidReward": 582,
+    "lossProbability": 0.03565494434
+  },
+  {
+    "tap": 79,
+    "freeReward": 426,
+    "paidReward": 604,
+    "lossProbability": 0.03597864795
+  },
+  {
+    "tap": 80,
+    "freeReward": 442,
+    "paidReward": 628,
+    "lossProbability": 0.03631244608
+  },
+  {
+    "tap": 81,
+    "freeReward": 459,
+    "paidReward": 653,
+    "lossProbability": 0.03665732494
+  },
+  {
+    "tap": 82,
+    "freeReward": 477,
+    "paidReward": 679,
+    "lossProbability": 0.03701445668
+  },
+  {
+    "tap": 83,
+    "freeReward": 496,
+    "paidReward": 706,
+    "lossProbability": 0.0373852299
+  },
+  {
+    "tap": 84,
+    "freeReward": 515,
+    "paidReward": 735,
+    "lossProbability": 0.03777128422
+  },
+  {
+    "tap": 85,
+    "freeReward": 535,
+    "paidReward": 766,
+    "lossProbability": 0.03817454933
+  },
+  {
+    "tap": 86,
+    "freeReward": 556,
+    "paidReward": 799,
+    "lossProbability": 0.03859728898
+  },
+  {
+    "tap": 87,
+    "freeReward": 577,
+    "paidReward": 833,
+    "lossProbability": 0.03904215038
+  },
+  {
+    "tap": 88,
+    "freeReward": 600,
+    "paidReward": 870,
+    "lossProbability": 0.03951221951
+  },
+  {
+    "tap": 89,
+    "freeReward": 624,
+    "paidReward": 908,
+    "lossProbability": 0.04001108297
+  },
+  {
+    "tap": 90,
+    "freeReward": 649,
+    "paidReward": 949,
+    "lossProbability": 0.04054289694
+  },
+  {
+    "tap": 91,
+    "freeReward": 675,
+    "paidReward": 992,
+    "lossProbability": 0.04111246378
+  },
+  {
+    "tap": 92,
+    "freeReward": 702,
+    "paidReward": 1038,
+    "lossProbability": 0.04172531715
+  },
+  {
+    "tap": 93,
+    "freeReward": 730,
+    "paidReward": 1087,
+    "lossProbability": 0.04238781616
+  },
+  {
+    "tap": 94,
+    "freeReward": 760,
+    "paidReward": 1139,
+    "lossProbability": 0.04310724954
+  },
+  {
+    "tap": 95,
+    "freeReward": 791,
+    "paidReward": 1194,
+    "lossProbability": 0.04389195038
+  },
+  {
+    "tap": 96,
+    "freeReward": 823,
+    "paidReward": 1253,
+    "lossProbability": 0.04475142259
+  },
+  {
+    "tap": 97,
+    "freeReward": 857,
+    "paidReward": 1315,
+    "lossProbability": 0.04569647974
+  },
+  {
+    "tap": 98,
+    "freeReward": 893,
+    "paidReward": 1382,
+    "lossProbability": 0.04673939748
+  },
+  {
+    "tap": 99,
+    "freeReward": 930,
+    "paidReward": 1453,
+    "lossProbability": 0.04789408034
+  },
+  {
+    "tap": 100,
+    "freeReward": 969,
+    "paidReward": 1528,
+    "lossProbability": 0.04917624418
+  },
+  {
+    "tap": 101,
+    "freeReward": 1010,
+    "paidReward": 1609,
+    "lossProbability": 0.05060361534
+  },
+  {
+    "tap": 102,
+    "freeReward": 1053,
+    "paidReward": 1696,
+    "lossProbability": 0.05219614768
+  },
+  {
+    "tap": 103,
+    "freeReward": 1098,
+    "paidReward": 1788,
+    "lossProbability": 0.05397625886
+  },
+  {
+    "tap": 104,
+    "freeReward": 1146,
+    "paidReward": 1887,
+    "lossProbability": 0.05596908709
+  },
+  {
+    "tap": 105,
+    "freeReward": 1195,
+    "paidReward": 1993,
+    "lossProbability": 0.05820276985
+  },
+  {
+    "tap": 106,
+    "freeReward": 1248,
+    "paidReward": 2106,
+    "lossProbability": 0.06070874595
+  },
+  {
+    "tap": 107,
+    "freeReward": 1303,
+    "paidReward": 2228,
+    "lossProbability": 0.06352208259
+  },
+  {
+    "tap": 108,
+    "freeReward": 1361,
+    "paidReward": 2358,
+    "lossProbability": 0.06668182895
+  },
+  {
+    "tap": 109,
+    "freeReward": 1421,
+    "paidReward": 2498,
+    "lossProbability": 0.07023139805
+  },
+  {
+    "tap": 110,
+    "freeReward": 1485,
+    "paidReward": 2649,
+    "lossProbability": 0.07421897867
+  },
+  {
+    "tap": 111,
+    "freeReward": 1553,
+    "paidReward": 2812,
+    "lossProbability": 0.07869797911
+  },
+  {
+    "tap": 112,
+    "freeReward": 1623,
+    "paidReward": 2987,
+    "lossProbability": 0.08372750488
+  },
+  {
+    "tap": 113,
+    "freeReward": 1698,
+    "paidReward": 3175,
+    "lossProbability": 0.08937287225
+  },
+  {
+    "tap": 114,
+    "freeReward": 1777,
+    "paidReward": 3379,
+    "lossProbability": 0.09570615976
+  },
+  {
+    "tap": 115,
+    "freeReward": 1860,
+    "paidReward": 3598,
+    "lossProbability": 0.1028068
+  },
+  {
+    "tap": 116,
+    "freeReward": 1948,
+    "paidReward": 3836,
+    "lossProbability": 0.1107622141
+  },
+  {
+    "tap": 117,
+    "freeReward": 2040,
+    "paidReward": 4093,
+    "lossProbability": 0.1196684905
+  },
+  {
+    "tap": 118,
+    "freeReward": 2138,
+    "paidReward": 4371,
+    "lossProbability": 0.1296311125
+  },
+  {
+    "tap": 119,
+    "freeReward": 2241,
+    "paidReward": 4673,
+    "lossProbability": 0.1407657344
+  },
+  {
+    "tap": 120,
+    "freeReward": 2350,
+    "paidReward": 5000,
+    "lossProbability": 0.1531990113
+  }
+]
