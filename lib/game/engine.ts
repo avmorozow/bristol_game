@@ -1,6 +1,6 @@
 import table from './economy.json';
 
-export const CONFIG = { mode:'demo', version:'new_balance_120_draft_v1', paidPrice:100, boosterPrice:50, boosterLimit:1, maxTaps:120, referralReward:100, referralDaily:5, referralTotal:20, initialBalance:1000, leaseMs:30000 } as const;
+export const CONFIG = { mode:'demo', version:'new_balance_120_draft_v1', paidPrice:100, boosterPrice:50, boosterLimit:1, maxTaps:120, referralReward:100, referralDaily:5, referralTotal:20, initialBalance:1000, leaseMs:300000 } as const;
 export type Status = 'active'|'loss_pending'|'final_ready'|'won'|'lost'|'abandoned';
 export type Attempt = { id:string; kind:'free'|'paid'; status:Status; tap:number; reward:number; boosterUsed:boolean; version:string; lastSeen:number; createdAt:number; scenario?:'final'|'squirrel'; coupon?:string; reason?:string };
 export type Transaction = {id:string; amount:number; label:string; at:number; reason:string};
@@ -38,6 +38,10 @@ export function transition(input:Player,action:string,value:unknown,now:number,i
  const s=expire(input,now);let a=s.attempt;
  switch(action){
  case 'tutorial':s.tutorial=true;break;
+ case 'dismiss':
+   if(isLive(a))throw new GameError('active_attempt','Сначала закончи текущую игру.');
+   if(a?.id===value)s.attempt=null;
+   break;
  case 'start':{
    if(isLive(a))throw new GameError('active_attempt','У вас уже есть активная игра.');
    const kind=s.freeDate===utcDate(now)?'paid':'free';
@@ -86,4 +90,8 @@ export function referral(invitee:Player,inviter:Player,code:string,now:number,id
  transact(b,CONFIG.referralReward,'Бонус за приглашение','referral_inviter_reward',id+':inviter',now);
  return [a,b];
 }
-export function publicState(s:Player,version:number,code:string,now:number){return {...s,transactions:s.transactions.slice(0,200),revision:version,referralCode:code,freeAvailable:s.freeDate!==utcDate(now),serverTime:now,config:CONFIG};}
+export function publicState(s:Player,version:number,code:string,now:number){
+ const a=s.attempt;
+ const nextTap=a?.status==='active'?{reward:payout(a.tap+1,a.kind),lossPercent:a.scenario==='final'?0:a.scenario==='squirrel'?([4,8].includes(a.tap+1)?100:0):probability(a.tap+1)*100}:null;
+ return {...s,transactions:s.transactions.slice(0,200),revision:version,referralCode:code,freeAvailable:s.freeDate!==utcDate(now),serverTime:now,nextTap,config:CONFIG};
+}

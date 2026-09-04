@@ -14,6 +14,7 @@ const env={DB:null};globalThis.__TEST_ENV=env;
 const engine=await import(pathToFileURL(join(temp,'lib/game/engine.mjs')));
 const api=await import(pathToFileURL(join(temp,'app/api/game/route.mjs')));
 let sql;
+const cookies=new Map();
 class Statement{
  constructor(query,values=[]){this.query=query;this.values=values;}
  bind(...values){return new Statement(this.query,values);}
@@ -22,10 +23,10 @@ class Statement{
  async run(){return this.execute();}
 }
 const migration=await readFile(join(root,'drizzle/0000_material_blue_blade.sql'),'utf8');
-beforeEach(()=>{sql?.close();sql=new DatabaseSync(':memory:');sql.exec(migration);env.DB={prepare:q=>new Statement(q),batch:async statements=>{sql.exec('BEGIN');try{const result=statements.map(s=>s.execute());sql.exec('COMMIT');return result;}catch(e){sql.exec('ROLLBACK');throw e;}}};});
+beforeEach(()=>{cookies.clear();sql?.close();sql=new DatabaseSync(':memory:');sql.exec(migration);env.DB={prepare:q=>new Statement(q),batch:async statements=>{sql.exec('BEGIN');try{const result=statements.map(s=>s.execute());sql.exec('COMMIT');return result;}catch(e){sql.exec('ROLLBACK');throw e;}}};});
 after(async()=>{sql?.close();await rm(temp,{recursive:true,force:true});});
-const headers=id=>({'oai-authenticated-user-id':id,'Content-Type':'application/json','Origin':'https://bristol.test'});
-async function get(id='player'){const r=await api.GET(new Request('https://bristol.test/api/game',{headers:headers(id)}));assert.equal(r.status,200);return r.json();}
+const headers=id=>({'Cookie':cookies.get(id)??'','Content-Type':'application/json','Origin':'https://bristol.test'});
+async function get(id='player'){const r=await api.GET(new Request('https://bristol.test/api/game',{headers:headers(id)}));assert.equal(r.status,200);if(r.headers.get('set-cookie'))cookies.set(id,r.headers.get('set-cookie').split(';')[0]);return r.json();}
 async function post(id,command){const r=await api.POST(new Request('https://bristol.test/api/game',{method:'POST',headers:headers(id),body:JSON.stringify(command)}));return {status:r.status,data:await r.json()};}
 async function send(action,value,id='player'){const s=await get(id);const r=await post(id,{id:crypto.randomUUID(),action,value,revision:s.revision});assert.equal(r.status,200,JSON.stringify(r.data));return r.data;}
 const now=Date.UTC(2026,8,4,12);
@@ -50,11 +51,13 @@ test('final tap produces one gift only when settled, including rescue on tap120'
  let s=step(engine.initialPlayer(),'start');for(let n=1;n<120;n++)s=step(s,'tap');s=step(s,'tap',undefined,()=>0);assert.equal(s.attempt.status,'loss_pending');assert.equal(s.gifts.length,0);s=step(s,'booster');assert.equal(s.attempt.status,'final_ready');s=step(s,'cashout');assert.equal(s.balance,3300);assert.equal(s.gifts.length,1);assert.equal(step(s,'close',s.attempt.id).gifts.length,1);
 });
 test('expired active attempt pays last confirmed total; expired squirrel pays nothing',()=>{
- let s=step(engine.initialPlayer(),'start');s=step(s,'tap');let expired=engine.expire(s,now+30001);assert.equal(expired.balance,1002);assert.equal(expired.attempt.reason,'connection');assert.equal(engine.expire(expired,now+60000).balance,1002);
- s=step(s,'tap',undefined,()=>0);expired=engine.expire(s,now+30001);assert.equal(expired.balance,1000);assert.equal(expired.attempt.status,'lost');
+ let s=step(engine.initialPlayer(),'start');s=step(s,'tap');let expired=engine.expire(s,now+engine.CONFIG.leaseMs+1);assert.equal(expired.balance,1002);assert.equal(expired.attempt.reason,'connection');assert.equal(engine.expire(expired,now+engine.CONFIG.leaseMs*2).balance,1002);
+ s=step(s,'tap',undefined,()=>0);expired=engine.expire(s,now+engine.CONFIG.leaseMs+1);assert.equal(expired.balance,1000);assert.equal(expired.attempt.status,'lost');
 });
-test('API requires authenticated identity and rejects cross-site requests',async()=>{
- assert.equal((await api.GET(new Request('https://bristol.test/api/game'))).status,401);
+test('API opens a guest profile and rejects cross-site requests',async()=>{
+ const r=await api.GET(new Request('https://bristol.test/api/game'));assert.equal(r.status,200);
+ const cookie=r.headers.get('set-cookie');assert.match(cookie,/bristol_guest=[a-f0-9]{64};/);assert.match(cookie,/HttpOnly/);assert.match(cookie,/Secure/);assert.match(cookie,/SameSite=Lax/);
+ assert.equal(r.headers.get('cache-control'),'no-store');assert.equal((await r.json()).balance,1000);
  const h={...headers('player'),Origin:'https://untrusted.test'};assert.equal((await api.POST(new Request('https://bristol.test/api/game',{method:'POST',headers:h,body:'{}'}))).status,403);
 });
 test('concurrent start requests cannot spend two attempts',async()=>{
@@ -83,27 +86,43 @@ test('insufficient funds cannot buy a paid attempt or a booster',()=>{
  let s=engine.initialPlayer();s.balance=99;s.freeDate=engine.utcDate(now);assert.throws(()=>step(s,'start'),e=>e.code==='insufficient_funds');assert.equal(s.balance,99);s.freeDate=null;s=step(s,'start');s.balance=49;s=step(s,'tap',undefined,()=>0);assert.throws(()=>step(s,'booster'),e=>e.code==='insufficient_funds');assert.equal(s.balance,49);assert.equal(s.attempt.status,'loss_pending');
 });
 
-test('email-only SIWC can load a profile, finish tutorial, play and restore a result',async()=>{
- const identity={'oai-authenticated-user-email':'player@example.test','Content-Type':'application/json',Origin:'https://bristol.test'};
- async function read(){const r=await api.GET(new Request('https://bristol.test/api/game',{headers:identity}));assert.equal(r.status,200);return r.json();}
- async function command(action,value){const before=await read();const r=await api.POST(new Request('https://bristol.test/api/game',{method:'POST',headers:identity,body:JSON.stringify({id:crypto.randomUUID(),action,value,revision:before.revision})}));assert.equal(r.status,200,await r.clone().text());return r.json();}
- assert.equal((await read()).balance,1000);assert.equal((await command('tutorial','complete')).tutorial,true);
- const started=await command('start');assert.equal(started.attempt.status,'active');assert.equal(started.attempt.kind,'free');
- const tapped=await command('tap');assert.equal(tapped.attempt.tap,1);
- // Rescue the first tap if its real random outcome was a squirrel.
- if(tapped.attempt.status==='loss_pending')await command('booster');
- const reward=await command('cashout');assert.equal(reward.attempt.status,'won');assert.equal(reward.attempt.reward,2);
- assert.deepEqual((await read()).transactions,reward.transactions);assert.equal((await read()).balance,reward.balance);
+test('guest profile plays without ChatGPT headers and restores the same wallet',async()=>{
+ const initial=await get();await send('tutorial','complete');const started=await send('start');assert.equal(started.attempt.kind,'free');
+ let tapped=await send('tap');if(tapped.attempt.status==='loss_pending')tapped=await send('booster');
+ const result=await send('cashout');assert.equal(result.balance,tapped.balance+2);
+ const restored=await get();assert.equal(restored.referralCode,initial.referralCode);assert.deepEqual(restored.transactions,result.transactions);
  assert.equal(sql.prepare('SELECT count(*) AS n FROM players').get().n,1);
- assert.ok(!JSON.stringify(sql.prepare('SELECT * FROM players').all()).includes('player@example.test'));
+ assert.ok(!JSON.stringify(sql.prepare('SELECT * FROM players').all()).includes(cookies.get('player').split('=')[1]));
 });
-
-test('email identities are isolated and no identity cannot read or change a game',async()=>{
- const read=email=>api.GET(new Request('https://bristol.test/api/game',{headers:{'oai-authenticated-user-email':email}}));
- const first=await (await read('one@example.test')).json(),second=await (await read('two@example.test')).json();
- assert.notEqual(first.referralCode,second.referralCode);
- assert.equal((await read(' ')).status,401);
- const anonymous=await api.POST(new Request('https://bristol.test/api/game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:crypto.randomUUID(),action:'start',revision:0,email:'one@example.test'})}));assert.equal(anonymous.status,401);
+test('guest profiles are isolated; forged ChatGPT headers do not select a profile',async()=>{
+ const first=await get('one'),second=await get('two');assert.notEqual(first.referralCode,second.referralCode);
+ await send('demo','balance','one');assert.equal((await get('two')).balance,1000);
+ const read=await api.GET(new Request('https://bristol.test/api/game',{headers:{...headers('two'),'oai-authenticated-user-id':'one','oai-authenticated-user-email':'player@example.test'}}));assert.equal((await read.json()).referralCode,second.referralCode);
+ const anonymous=await api.POST(new Request('https://bristol.test/api/game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:crypto.randomUUID(),action:'start',revision:0,user:'one'})}));assert.equal(anonymous.status,401);
+ const invalid=await api.GET(new Request('https://bristol.test/api/game',{headers:{Cookie:'bristol_guest=one'}}));assert.equal(invalid.status,200);assert.match(invalid.headers.get('set-cookie'),/bristol_guest=[a-f0-9]{64}/);
+});
+test('session cannot be changed by a cross-site form submission',async()=>{
+ await get();const r=await api.POST(new Request('https://bristol.test/api/game',{method:'POST',headers:{...headers('player'),'Content-Type':'text/plain'},body:'{}'}));assert.equal(r.status,415);
+ const cross=await api.POST(new Request('https://bristol.test/api/game',{method:'POST',headers:{...headers('player'),'sec-fetch-site':'cross-site'},body:'{}'}));assert.equal(cross.status,403);assert.equal((await get()).started,0);
+});
+test('a dismissed result stays dismissed after reload and an active game cannot be dismissed',async()=>{
+ let s=await send('demo','squirrel');const active=await post('player',{id:crypto.randomUUID(),action:'dismiss',value:s.attempt.id,revision:s.revision});assert.equal(active.data.code,'active_attempt');
+ await send('tap');s=await send('cashout');const balance=s.balance;await send('dismiss',s.attempt.id);s=await get();assert.equal(s.attempt,null);assert.equal(s.balance,balance);assert.equal(s.transactions.length,1);
+});
+test('five-minute grace period preserves a short pause and settles a long absence once',()=>{
+ let s=step(engine.initialPlayer(),'start');s=step(s,'tap');assert.equal(engine.expire(s,now+60000).attempt.status,'active');
+ s=step(s,'heartbeat',undefined,()=>1,now+60000);assert.equal(engine.expire(s,now+engine.CONFIG.leaseMs).attempt.status,'active');
+ const settled=engine.expire(s,now+60000+engine.CONFIG.leaseMs+1);assert.equal(settled.balance,1002);assert.equal(engine.expire(settled,now+engine.CONFIG.leaseMs*3).balance,1002);
+});
+test('the demonstration referral works for every guest but only once per profile',async()=>{
+ for(let i=0;i<7;i++){const s=await send('referral','BRISTOL','demo'+i);assert.equal(s.balance,1100);assert.equal(s.invitedBy,'BRISTOL');}
+ const s=await get('demo6');const r=await post('demo6',{id:crypto.randomUUID(),action:'referral',value:'BRISTOL',revision:s.revision});assert.equal(r.data.code,'already_invited');
+});
+test('next-tap information reflects the exact economy and explicit demonstration rules',()=>{
+ let s=step(engine.initialPlayer(),'start');let view=engine.publicState(s,1,'CODE',now);assert.equal(view.nextTap.reward,2);assert.equal(view.nextTap.lossPercent,engine.probability(1)*100);
+ s=step(s,'taps',{count:3,attemptId:s.attempt.id});view=engine.publicState(s,2,'CODE',now);assert.equal(view.nextTap.reward,engine.payout(4,'free'));
+ s=step(engine.initialPlayer(),'demo','squirrel');s=step(s,'taps',{count:3,attemptId:s.attempt.id});assert.equal(engine.publicState(s,3,'CODE',now).nextTap.lossPercent,100);
+ s=step(engine.initialPlayer(),'demo','final');assert.equal(engine.publicState(s,3,'CODE',now).nextTap.lossPercent,0);
 });
 
 test('rapid tap batch stops at first squirrel and does not replay on retry',async()=>{
