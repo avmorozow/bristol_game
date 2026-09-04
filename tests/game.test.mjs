@@ -9,7 +9,7 @@ import {pathToFileURL} from 'node:url';
 
 const root=new URL('../',import.meta.url).pathname;
 const temp=await mkdtemp(join(tmpdir(),'bristol-tests-'));
-await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
+await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
 const env={DB:null};globalThis.__TEST_ENV=env;
 const engine=await import(pathToFileURL(join(temp,'lib/game/engine.mjs')));
 const api=await import(pathToFileURL(join(temp,'app/api/game/route.mjs')));
@@ -164,4 +164,62 @@ test('taps are accepted immediately while the first network response is delayed'
 test('queued taps are discarded on a squirrel or cancelled exit',async()=>{
  const h=queueHarness();h.queue.add();h.queue.add();h.queue.add();const done=h.queue.flush();h.requests[0].finish('loss_pending');await done;assert.equal(h.requests.length,1);assert.equal(h.queue.add(),false);h.queue.dispose();
  const exit=queueHarness();exit.queue.add();exit.queue.add();exit.queue.cancel();const closed=exit.queue.flush();exit.requests[0].finish();await closed;assert.equal(exit.requests.length,1);exit.queue.dispose();
+});
+
+test('explicit paid mode preserves the free daily attempt and explicit free cannot charge money',()=>{
+ let s=step(engine.initialPlayer(),'start','paid');assert.equal(s.attempt.kind,'paid');assert.equal(s.balance,900);assert.equal(s.freeDate,null);
+ s=step(s,'close',s.attempt.id);s=step(s,'start','free');assert.equal(s.attempt.kind,'free');assert.equal(s.balance,900);
+ s=step(s,'close',s.attempt.id);assert.throws(()=>step(s,'start','free'),e=>e.code==='free_used');assert.equal(s.balance,900);
+ assert.throws(()=>step(s,'start','surprise'),e=>e.code==='invalid_mode');
+ s=step(s,'start','free',()=>1,Date.UTC(2026,8,5));assert.equal(s.attempt.kind,'free');assert.equal(s.balance,900);
+});
+test('paid mode replay charges exactly once and concurrent explicit free starts consume only one quota',async()=>{
+ let s=await get();const c={id:crypto.randomUUID(),action:'start',value:'paid',revision:s.revision};const first=await post('player',c);assert.equal(first.data.balance,900);assert.equal(first.data.freeAvailable,true);assert.deepEqual(await post('player',c),first);
+ await send('close',first.data.attempt.id);s=await get();const r=await Promise.all([1,2].map(()=>post('player',{id:crypto.randomUUID(),action:'start',value:'free',revision:s.revision})));assert.deepEqual(r.map(x=>x.status).sort(),[200,409]);assert.equal((await get()).balance,900);
+});
+test('120 immediate taps are accepted before a delayed response, without silent loss or oversized batches',async()=>{
+ const h=queueHarness();const start=performance.now();for(let i=0;i<120;i++){assert.equal(h.queue.add(),true);assert.equal(h.queue.preview().tap,i+1);}
+ assert.ok(performance.now()-start<100,'synchronous feedback must not await transport');assert.equal(h.queue.add(),false);assert.equal(h.position().tap,0);assert.equal(h.requests.length,1);
+ const done=h.queue.flush();for(let i=0;i<h.requests.length;i++){assert.ok(h.requests[i].count<=20);h.requests[i].finish(i===6?'final_ready':'active');await nextTurn();}
+ await done;assert.equal(h.position().tap,120);assert.equal(h.requests.length,7);assert.equal(h.queue.preview().pending,0);h.queue.dispose();
+});
+test('projection never double-counts acknowledged taps and never carries into another attempt',async()=>{
+ let p={id:'first',tap:60,status:'active'},finish;const changes=[];
+ const q=new TapQueue({position:()=>p,readiness:()=> 'ready',onChange:(pending,tap)=>changes.push({pending,tap}),send:count=>new Promise(resolve=>{finish=()=>{p={...p,tap:p.tap+count};assert.equal(q.preview().tap,62);resolve(p);};})});
+ q.add();q.add();assert.deepEqual(q.preview(),{tap:62,pending:2});finish();await nextTurn();assert.deepEqual(q.preview(),{tap:62,pending:1});finish();await q.flush();
+ p={id:'second',tap:0,status:'active'};q.add();assert.deepEqual(q.preview(),{tap:1,pending:1});q.dispose();
+});
+test('a failed connection rolls the provisional projection back to the confirmed tap',async()=>{
+ let p={id:'a',tap:5,status:'active'},fail;const q=new TapQueue({position:()=>p,readiness:()=> 'ready',send:()=>new Promise(resolve=>{fail=()=>resolve(null);})});
+ for(let i=0;i<30;i++)q.add();assert.equal(q.preview().tap,35);const done=q.flush();fail();await done;assert.deepEqual(q.preview(),{tap:5,pending:0});q.dispose();
+});
+
+const feedback=await import(pathToFileURL(join(temp,'lib/game/feedback.mjs')));
+const {GameAudio}=await import(pathToFileURL(join(temp,'lib/game/audio.mjs')));
+test('every queued tap previews the exact cumulative table and a squirrel restores authoritative points',()=>{
+ let s=step(engine.initialPlayer(),'start','paid');
+ for(let n=1;n<=120;n++){const p=feedback.tapPreview(s.attempt,n);assert.equal(p.tap,n);assert.equal(p.reward,engine.payout(n,'paid'));assert.equal(p.pending,true);}
+ assert.equal(s.balance,900);assert.equal(s.attempt.reward,0);
+ s=step(s,'tap',undefined,()=>0);assert.deepEqual(feedback.tapPreview(s.attempt,45),{tap:1,reward:102,pending:false});
+ s=step(s,'booster');assert.match(feedback.encouragement(s.attempt),/Вторая всё ещё может появиться/);
+ s=step(s,'tap',undefined,()=>0);assert.deepEqual(feedback.tapPreview(s.attempt,45),{tap:2,reward:0,pending:false});
+});
+test('haptics uses one short pulse and tolerates disabled, unsupported or rejected vibration',()=>{
+ const pulses=[];assert.equal(feedback.vibrateTap(true,{vibrate:n=>(pulses.push(n),true)}),true);assert.deepEqual(pulses,[10]);
+ assert.equal(feedback.vibrateTap(false,{vibrate:()=>assert.fail('disabled')}),false);assert.equal(feedback.vibrateTap(true,{}),false);assert.equal(feedback.vibrateTap(true,{vibrate:()=>{throw new Error('unavailable');}}),false);
+});
+function audioHarness(){
+ const oscillators=[],gains=[];const param=()=>({value:0,changes:[],setValueAtTime(v){this.changes.push(v);},setTargetAtTime(v){this.changes.push(v);},exponentialRampToValueAtTime(v){this.changes.push(v);}});
+ const ctx={state:'suspended',currentTime:0,destination:{},createGain(){const n={gain:param(),connect(){},disconnect(){}};gains.push(n);return n;},createOscillator(){const o={frequency:param(),connect(){},disconnect(){},start(){},stop(){this.onended?.();}};oscillators.push(o);return o;},async resume(){this.state='running';},async close(){this.state='closed';}};
+ const audio=new GameAudio(()=>ctx);return {audio,ctx,oscillators,gains};
+}
+test('music starts after interaction, pauses when hidden or muted, and effects obey preferences',async()=>{
+ const h=audioHarness();try{
+ h.audio.setActive(true);assert.equal(h.oscillators.length,0);h.audio.unlock();await nextTurn();assert.ok(h.oscillators.length>=3,'melody, bass and beat scheduled');
+ let n=h.oscillators.length;h.audio.play('tap');assert.equal(h.oscillators.length,n+2);
+ h.audio.configure({muted:false,music:true,effects:false});n=h.oscillators.length;h.audio.play('tap');assert.equal(h.oscillators.length,n);
+ h.audio.configure({muted:true,music:true,effects:true});h.audio.play('win');assert.equal(h.oscillators.length,n);assert.equal(h.gains[0].gain.changes.at(-1),0);
+ h.audio.configure({muted:false,music:true,effects:true});h.audio.setHidden(true);assert.equal(h.gains[0].gain.changes.at(-1),0);n=h.oscillators.length;h.audio.play('loss');assert.equal(h.oscillators.length,n);
+ h.audio.setHidden(false);assert.equal(h.gains[0].gain.changes.at(-1),.38);h.audio.setActive(false);assert.equal(h.gains[1].gain.changes.at(-1),0);
+ }finally{h.audio.dispose();}assert.equal(h.ctx.state,'closed');
 });

@@ -6,11 +6,12 @@ type Options = {
  position:()=>TapPosition|null;
  readiness:()=> 'ready'|'wait'|'stop';
  send:(count:number,attemptId:string)=>Promise<TapPosition|null>;
- onChange?:(pending:number)=>void;
+ onChange?:(pending:number,projectedTap:number)=>void;
 };
 export class TapQueue {
  private queued=0;
  private inFlight=0;
+ private sentFrom=0;
  private target:string|null=null;
  private running=false;
  private disposed=false;
@@ -21,7 +22,7 @@ export class TapQueue {
   const a=this.options.position();
   if(this.disposed||!a||a.status!=='active'||this.options.readiness()==='stop')return false;
   if(this.target&&this.target!==a.id){this.cancel();if(this.running)return false;}
-  if(this.queued+this.inFlight>=Math.min(20,120-a.tap))return false;
+  if(this.preview().tap>=120)return false;
   this.target=a.id;this.queued++;this.emit();void this.pump();return true;
  }
  flush():Promise<void>{
@@ -30,7 +31,14 @@ export class TapQueue {
  }
  cancel(){this.queued=0;if(this.timer)clearTimeout(this.timer);this.timer=null;this.emit();if(!this.running)this.finish();}
  dispose(){this.disposed=true;this.cancel();}
- private emit(){this.options.onChange?.(this.queued+this.inFlight);}
+ preview(){
+  const a=this.options.position();
+  if(!a||a.status!=='active'||(this.target&&a.id!==this.target))return {tap:a?.tap??0,pending:0};
+  const unresolved=this.inFlight?Math.max(0,this.sentFrom+this.inFlight-a.tap):0;
+  const tap=Math.min(120,a.tap+this.queued+unresolved);
+  return {tap,pending:tap-a.tap};
+ }
+ private emit(){const p=this.preview();this.options.onChange?.(p.pending,p.tap);}
  private finish(){for(const resolve of this.waiters)resolve();this.waiters.clear();}
  private async pump(){
   if(this.running||this.disposed)return;
@@ -42,7 +50,7 @@ export class TapQueue {
    return;
   }
   const count=Math.min(this.queued,20,120-a.tap);
-  this.queued-=count;this.inFlight=count;this.running=true;this.emit();
+  this.queued-=count;this.sentFrom=a.tap;this.inFlight=count;this.running=true;this.emit();
   try{
    const result=await this.options.send(count,a.id);
    if(!result||result.id!==this.target||result.status!=='active')this.queued=0;

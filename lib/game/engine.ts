@@ -44,7 +44,9 @@ export function transition(input:Player,action:string,value:unknown,now:number,i
    break;
  case 'start':{
    if(isLive(a))throw new GameError('active_attempt','У вас уже есть активная игра.');
-   const kind=s.freeDate===utcDate(now)?'paid':'free';
+   if(value!==undefined&&value!=='free'&&value!=='paid')throw new GameError('invalid_mode','Выбери бесплатную или платную попытку.');
+   const kind=value??(s.freeDate===utcDate(now)?'paid':'free');
+   if(kind==='free'&&s.freeDate===utcDate(now))throw new GameError('free_used','Бесплатная попытка уже использована. Следующая — в 03:00 по Москве.');
    if(kind==='paid')transact(s,-CONFIG.paidPrice,'Платная игра','paid_game_attempt',id+':entry',now);else s.freeDate=utcDate(now);
    s.started++;s.attempt={id,kind,status:'active',tap:0,reward:0,boosterUsed:false,version:CONFIG.version,lastSeen:now,createdAt:now};break;
  }
