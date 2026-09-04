@@ -9,7 +9,7 @@ import {pathToFileURL} from 'node:url';
 
 const root=new URL('../',import.meta.url).pathname;
 const temp=await mkdtemp(join(tmpdir(),'bristol-tests-'));
-await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
+await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts'),join(root,'lib/game/result-view.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
 const env={DB:null};globalThis.__TEST_ENV=env;
 const engine=await import(pathToFileURL(join(temp,'lib/game/engine.mjs')));
 const api=await import(pathToFileURL(join(temp,'app/api/game/route.mjs')));
@@ -222,4 +222,34 @@ test('music starts after interaction, pauses when hidden or muted, and effects o
  h.audio.configure({muted:false,music:true,effects:true});h.audio.setHidden(true);assert.equal(h.gains[0].gain.changes.at(-1),0);n=h.oscillators.length;h.audio.play('loss');assert.equal(h.oscillators.length,n);
  h.audio.setHidden(false);assert.equal(h.gains[0].gain.changes.at(-1),.38);h.audio.setActive(false);assert.equal(h.gains[1].gain.changes.at(-1),0);
  }finally{h.audio.dispose();}assert.equal(h.ctx.state,'closed');
+});
+
+const resultView=await import(pathToFileURL(join(temp,'lib/game/result-view.mjs')));
+test('continue is a local view change, scoped to a settled attempt and guest profile',()=>{
+ let s={...step(engine.initialPlayer(),'start'),referralCode:'guest-a'};assert.equal(resultView.dismissSettledResult(s),null);
+ s={...step(step(s,'tap'),'cashout'),referralCode:'guest-a'};const original=structuredClone(s),dismissed=resultView.dismissSettledResult(s);
+ assert.deepEqual(s,original);assert.deepEqual(dismissed,{profile:'guest-a',attemptId:s.attempt.id});assert.equal(resultView.resultIsDismissed(s,dismissed),true);
+ assert.equal(resultView.resultIsDismissed({...s,referralCode:'guest-b'},dismissed),false);
+ const active={...step(s,'start','paid'),referralCode:'guest-a'};assert.equal(resultView.resultIsDismissed(active,dismissed),false);assert.equal(resultView.dismissSettledResult(active),null);
+});
+test('a new paid attempt starts directly after local continue and charges once without a dismiss API call',async()=>{
+ await send('demo','squirrel');await send('tap');const won=await send('cashout');const dismissal=resultView.dismissSettledResult(won);assert.equal(resultView.resultIsDismissed(won,dismissal),true);
+ const c={id:crypto.randomUUID(),action:'start',value:'paid',revision:won.revision};const first=await post('player',c);assert.equal(first.status,200);assert.equal(first.data.attempt.status,'active');assert.equal(first.data.balance,won.balance-100);
+ assert.deepEqual(await post('player',c),first);const fresh=await get();assert.equal(fresh.balance,won.balance-100);assert.equal(fresh.transactions.filter(t=>t.reason==='paid_game_attempt').length,1);
+ assert.equal(resultView.resultIsDismissed(fresh,dismissal),false);
+});
+test('coin flight requires a newly confirmed server reward and does not replay on retry or reload',()=>{
+ const withCode=s=>({...s,referralCode:'guest-a'});let before=withCode(step(engine.initialPlayer(),'demo','final'));
+ const ready=withCode(step(before,'tap'));assert.equal(resultView.newWalletCredit(before,ready),null);
+ const won=withCode(step(ready,'cashout'));const event=resultView.newWalletCredit(ready,won);assert.deepEqual(event,{id:won.attempt.id+':reward',amount:2350});
+ assert.equal(resultView.newWalletCredit(won,won),null);assert.equal(resultView.newWalletCredit(null,won),null);assert.equal(resultView.newWalletCredit({...ready,referralCode:'another'},won),null);
+ assert.equal(resultView.newWalletCredit(ready,{...won,transactions:[]}),null);
+ const next=withCode(step(won,'start','paid'));assert.equal(resultView.newWalletCredit(next,won),null);
+});
+test('loss and demo top-up never masquerade as session winnings',()=>{
+ let a={...step(engine.initialPlayer(),'demo','squirrel'),referralCode:'guest-a'};const b={...step(a,'tap',undefined,()=>0),referralCode:'guest-a'};
+ assert.equal(resultView.newWalletCredit(a,b),null);const initial={...engine.initialPlayer(),referralCode:'guest-a'},topup={...step(initial,'demo','balance'),referralCode:'guest-a'};
+ assert.equal(resultView.newWalletCredit(initial,topup),null);
+ a={...step(step(engine.initialPlayer(),'start'),'tap',undefined,()=>0),referralCode:'guest-a'};const lost={...step(a,'lose'),referralCode:'guest-a'};
+ assert.equal(resultView.newWalletCredit(a,lost),null);assert.equal(resultView.resultIsDismissed(lost,resultView.dismissSettledResult(lost)),true);
 });

@@ -7,6 +7,9 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/u
 import {Progress} from '@/components/ui/progress';
 import {Toaster,toast} from 'sonner';
 import {TapQueue} from '@/lib/game/tap-queue';
+import {WalletCelebration} from '@/components/wallet-celebration';
+import {dismissSettledResult,resultIsDismissed,newWalletCredit} from '@/lib/game/result-view';
+import type {ResultDismissal,WalletCredit} from '@/lib/game/result-view';
 import {GameAudio} from '@/lib/game/audio';
 import type {SoundKind} from '@/lib/game/audio';
 import {tapPreview,encouragement,vibrateTap} from '@/lib/game/feedback';
@@ -47,9 +50,12 @@ export default function Game(){
  const [modal,setModal]=useState<Modal>(null),[step,setStep]=useState(0),[muted,setMuted]=useState(false),[refCode,setRefCode]=useState(''),[refMessage,setRefMessage]=useState('');
  const [particles,setParticles]=useState<{id:number;amount:number;left:number}[]>([]),[historyCount,setHistoryCount]=useState(20),[pending,setPending]=useState(false);
  const commandDone=useRef<Promise<void>>(Promise.resolve());
+ const [dismissed,setDismissed]=useState<ResultDismissal|null>(null),[credit,setCredit]=useState<WalletCredit|null>(null);
+ const walletElement=useRef<HTMLButtonElement|null>(null),rewardOrigin=useRef<HTMLDivElement|null>(null),scoreOrigin=useRef<HTMLDivElement|null>(null);
+ const finishCredit=useCallback(()=>setCredit(null),[]);
  const lossFocus=useRef<HTMLDivElement|null>(null),resultFocus=useRef<HTMLDivElement|null>(null);
  const current=useRef<State|null>(null),lock=useRef(false),pendingCommand=useRef<Command|null>(null),particleId=useRef(0);
- const apply=useCallback((s:State)=>{if(!current.current||s.referralCode!==current.current.referralCode||s.revision>=current.current.revision){if(s.attempt?.id!==current.current?.attempt?.id){setProjectedTap(s.attempt?.tap??0);setTapBacklog(0);setParticles([]);}current.current=s;serverOffset.current=s.serverTime-Date.now();setState(s);}},[]);
+ const apply=useCallback((s:State)=>{if(!current.current||s.referralCode!==current.current.referralCode||s.revision>=current.current.revision){if(s.attempt?.id!==current.current?.attempt?.id){setProjectedTap(s.attempt?.tap??0);setTapBacklog(0);setParticles([]);}const received=newWalletCredit(current.current,s);if(received)setCredit(received);current.current=s;serverOffset.current=s.serverTime-Date.now();setState(s);}},[]);
  const sound=useCallback((kind:SoundKind)=>audioEngine.current?.play(kind),[]);
  const refresh=useCallback(async()=>{try{const {res,data}=await requestGame();if(!res.ok)throw new Error(data.error);apply(data);setError('');return data as State;}catch(e){setError(connectionError(e));return null;}finally{setLoading(false);}},[apply]);
  const send=useCallback(async(action:string,value?:unknown):Promise<State|null>=>{
@@ -96,7 +102,7 @@ export default function Game(){
   tapQueue.current=queue;
   return()=>{queue.dispose();tapQueue.current=null;};
  },[]);
- useEffect(()=>{void refresh().then(s=>{if(!s)return;if(!s.tutorial)setModal('tutorial');try{const p=sessionStorage.getItem('bristol-pending');if(p){const cmd=JSON.parse(p) as Command;if(cmd.profile===s.referralCode){pendingCommand.current=cmd;setPending(true);}else sessionStorage.removeItem('bristol-pending');}}catch{}});try{setMuted(localStorage.getItem('bristol-sound')==='off');setMusic(localStorage.getItem('bristol-music')!=='off');setEffects(localStorage.getItem('bristol-effects')!=='off');setHaptics(localStorage.getItem('bristol-haptics')!=='off');}catch{}},[refresh]);
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('bristol-result-view')??'null');if(saved&&typeof saved.profile==='string'&&typeof saved.attemptId==='string')setDismissed(saved);}catch{}void refresh().then(s=>{if(!s)return;if(!s.tutorial)setModal('tutorial');try{const p=sessionStorage.getItem('bristol-pending');if(p){const cmd=JSON.parse(p) as Command;if(cmd.profile===s.referralCode){pendingCommand.current=cmd;setPending(true);}else sessionStorage.removeItem('bristol-pending');}}catch{}});try{setMuted(localStorage.getItem('bristol-sound')==='off');setMusic(localStorage.getItem('bristol-music')!=='off');setEffects(localStorage.getItem('bristol-effects')!=='off');setHaptics(localStorage.getItem('bristol-haptics')!=='off');}catch{}},[refresh]);
  useEffect(()=>{const engine=new GameAudio();audioEngine.current=engine;setHapticSupport(typeof navigator.vibrate==='function');return()=>{engine.dispose();audioEngine.current=null;};},[]);
  useEffect(()=>{audioEngine.current?.configure({muted,music,effects});},[muted,music,effects]);
  useEffect(()=>{audioEngine.current?.setActive(state?.attempt?.status==='active');},[state?.attempt?.status]);
@@ -104,7 +110,7 @@ export default function Game(){
  useEffect(()=>{const timer=setInterval(()=>{const now=Date.now()+serverOffset.current;setClock(now);const s=current.current;if(s&&!s.freeAvailable&&s.freeDate!==new Date(now).toISOString().slice(0,10)&&!lock.current&&!pendingCommand.current)void refresh();},1000);return()=>clearInterval(timer);},[refresh]);
  useEffect(()=>{const timer=setInterval(()=>{if(document.visibilityState==='visible'&&live(current.current)&&!lock.current&&!pendingCommand.current&&!tapBacklog&&!cashoutLock.current)void send('heartbeat');},5000);return()=>clearInterval(timer);},[send,tapBacklog]);
  useEffect(()=>{const visible=()=>{audioEngine.current?.setHidden(document.visibilityState==='hidden');if(document.visibilityState==='hidden')tapQueue.current?.cancel();else if(!lock.current)void refresh();};const online=()=>{if(!pendingCommand.current&&!lock.current)void refresh();};document.addEventListener('visibilitychange',visible);window.addEventListener('online',online);return()=>{document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',online);};},[refresh]);
- const a=state?.attempt,playing=!!a&&['active','loss_pending','final_ready'].includes(a.status),result=!!a&&['won','lost','abandoned'].includes(a.status),onHome=!playing&&!result;
+ const a=state?.attempt,playing=!!a&&['active','loss_pending','final_ready'].includes(a.status),result=!!state&&!!a&&['won','lost','abandoned'].includes(a.status)&&!resultIsDismissed(state,dismissed),onHome=!playing&&!result;
  const blocked=busy||pending||loading;
  async function start(kind=selectedMode){
   const ready=current.current??await refresh();if(!ready)return;
@@ -143,7 +149,11 @@ export default function Game(){
  async function copy(){try{await navigator.clipboard.writeText(state!.referralCode);toast.success('Код скопирован');}catch{toast('Выделите код и скопируйте его');}}
  async function activate(){setRefMessage('');const s=await send('referral',refCode);if(s){setRefMessage(refCode==='BRISTOL'?'Готово! Начислено 100 тестовых монет за демонстрационный код.':'Готово! Вам и другу начислено по 100 тестовых монет.');toast.success('Бонус за друга получен');}}
  async function demo(value:string){const s=await send('demo',value);if(s){setModal(null);if(value==='balance')toast.success('Добавлено 1 000 тестовых монет');}}
- const dismissResult=async()=>{if(current.current?.attempt&&!live(current.current))await send('dismiss',current.current.attempt.id);};
+ const dismissResult=()=>{
+  const s=current.current;if(!s)return;const next=dismissSettledResult(s);if(!next)return;
+  setDismissed(next);setSelectedMode(s.freeAvailable?'free':'paid');setModal(null);
+  try{localStorage.setItem('bristol-result-view',JSON.stringify(next));}catch{}
+ };
  const preview=tapPreview(a,projectedTap);
  const remaining=state?.freeDate?Math.max(0,new Date(state.freeDate+'T00:00:00Z').getTime()+86400000-clock):0;
  const resetTime=[Math.floor(remaining/3600000),Math.floor(remaining/60000)%60,Math.floor(remaining/1000)%60].map(n=>String(n).padStart(2,'0')).join(':');
@@ -152,17 +162,18 @@ export default function Game(){
 
  return <main className="game-shell" onPointerDownCapture={()=>audioEngine.current?.unlock()} onKeyDownCapture={()=>audioEngine.current?.unlock()}>
   <Toaster position="top-center" richColors/>
+  {credit&&state&&<WalletCelebration key={credit.id} credit={credit} balance={state.balance} wallet={walletElement} origin={rewardOrigin} fallback={scoreOrigin} onComplete={finishCredit}/>}
   <section className={`game-stage ${onHome?'home-scene':'play-scene'}`} aria-label="Игра Собери пакет">
    <img className="scene-bg" src={A+(onHome?'home.png':'background.png')} alt="" fetchPriority="high"/>
    <div className="scene-shade"/>
    <header className="topbar">
     <div className="top-actions">
-     <Button variant="ghost" className="icon-button" aria-label={playing?'Выйти из игры':result?'На главную':'Мои подарки'} onClick={()=>playing?setModal('exit'):result?void dismissResult():setModal('gifts')} disabled={blocked}>{onHome?<Gift size={23}/>:<X size={25}/>}</Button>
+     <Button variant="ghost" className="icon-button" aria-label={playing?'Выйти из игры':'Мои подарки'} onClick={()=>playing?setModal('exit'):setModal('gifts')} disabled={blocked}>{playing?<X size={25}/>:<Gift size={23}/>}</Button>
      <Button variant="ghost" className="icon-button" aria-label={muted?'Включить звук':'Выключить звук'} aria-pressed={!muted} onClick={toggleSound}>{muted?<VolumeX size={23}/>:<Volume2 size={23}/>}</Button>
      <Button variant="ghost" className="icon-button settings-button" aria-label="Музыка, звуки и вибрация" onClick={()=>setModal('settings')}><Settings2 size={21}/></Button>
     </div>
     <div className="top-actions">
-     <button className="wallet" disabled={!state} onClick={()=>{setHistoryCount(20);setModal('history');}} aria-label={`Баланс ${state?fmt(state.balance):'загружается'} монет. История операций`}><span>{state?fmt(state.balance):'—'}</span><Coin size={43}/></button>
+     <button ref={walletElement} className="wallet" disabled={!state} onClick={()=>{setHistoryCount(20);setModal('history');}} aria-label={`Баланс ${state?fmt(state.balance):'загружается'} монет. История операций`}><span>{state?fmt(state.balance):'—'}</span><Coin size={43}/></button>
      <Button variant="ghost" className="icon-button help" aria-label="Правила игры" onClick={()=>setModal('rules')}>?</Button>
     </div>
    </header>
@@ -185,7 +196,7 @@ export default function Game(){
    {(playing||result)&&<>
     <div className="score-zone">
      <p className="score-caption">{showForced?'Показательный сценарий':a?.status==='final_ready'?'Все 120 тапов пройдены!':a?.status==='lost'?'Белка забрала пакет':a?.status==='won'?'Монеты на балансе':a?.status==='abandoned'?'Попытка завершена':a?.status==='loss_pending'?'Выигрыш у белки':preview.pending?'Предварительный выигрыш':a?.tap?'Можно забрать сейчас':'Нажми на пакет'}</p>
-     <div className={`score ${preview.reward>=1000?'score-small':''} ${preview.pending?'score-pending':''}`}><span data-testid="tap-score" aria-label={preview.pending?'Предварительная сумма':'Подтверждённая сумма'}>{fmt(preview.reward)}</span><Coin size={64}/></div>
+     <div ref={scoreOrigin} className={`score ${preview.reward>=1000?'score-small':''} ${preview.pending?'score-pending':''}`}><span data-testid="tap-score" aria-label={preview.pending?'Предварительная сумма':'Подтверждённая сумма'}>{fmt(preview.reward)}</span><Coin size={64}/></div>
      <div className="progress-info"><span>{preview.tap} / 120 тапов</span><span>Подарок в финале <img src={A+'gift.png'} alt=""/></span></div>
      <Progress value={preview.tap/120*100} className="game-progress" aria-label="Прогресс к подарку"/>
     </div>
@@ -193,12 +204,12 @@ export default function Game(){
      <button ref={bagElement} className="bag-button" onPointerDown={e=>{if(e.button===0)tap();}} onClick={e=>{if(e.detail===0)tap();}} disabled={tapBlocked||a?.status!=='active'||preview.tap>=120} aria-label="Нажать на пакет"><img src={A+'bag.png'} alt="Красный пакет Бристоль" draggable={false}/></button>
      <div className="tap-rings" aria-hidden="true"/>
      {particles.map(p=><span key={p.id} className="tap-particle" aria-hidden="true" style={{left:p.left+'%'}}>+{p.amount}<Coin size={25}/></span>)}
-     {a?.status==='active'&&<p className="tap-hint">{tapBacklog?`Нажатий в обработке: ${tapBacklog}`:a.tap===0?'Нажимай на пакет':a.boosterUsed?'Следующая белка завершит игру':'Продолжай или забери монеты'}</p>}
+     {a?.status==='active'&&<p className="tap-hint">{a.tap===0?'Нажимай на пакет':a.boosterUsed?'Следующая белка завершит игру':'Продолжай или забери монеты'}</p>}
     </div>
     <div className="game-bottom"><Action onClick={cashout} disabled={loading||cashoutWaiting||(pending&&!busy)||(busy&&!['taps','heartbeat'].includes(activeAction.current))||(!a?.tap&&!tapBacklog)||a?.status!=='active'} secondary className="cashout-button">{cashoutWaiting?<Loader2 size={21} className="spin"/>:null}{cashoutWaiting?'ЗАБИРАЕМ…':'ЗАБРАТЬ МОНЕТЫ'}</Action><span className="unclaimed-note">До зачисления выигрыш можно потерять</span></div>
    </>}
 
-   <p className="game-whisper" key={`${a?.id}-${a?.boosterUsed}-${Math.floor((a?.tap??0)/20)}`}>{encouragement(a)}</p>
+   <p className="game-whisper" key={`${a?.id}-${a?.boosterUsed}-${Math.floor((a?.tap??0)/20)}`}>{encouragement(onHome?null:a)}</p>
    {error&&<div className="connection-notice" role="alert"><span>{error}</span><button onClick={()=>pending?void send('retry'):void refresh()} disabled={busy}>Повторить</button></div>}
    {!error&&pending&&!busy&&<div className="connection-notice" role="status"><span>Осталось проверить последнее действие</span><button onClick={()=>void send('retry')} disabled={busy}>Проверить</button></div>}
    <button className="demo-label" onClick={()=>setModal('demo')}>Демо · тестовые монеты</button>
@@ -215,14 +226,14 @@ export default function Game(){
    </DialogContent>
   </Dialog>
 
-  {a&&<Dialog open={['final_ready','won','lost','abandoned'].includes(a.status)&&!modal} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
+  {a&&(result||a.status==='final_ready')&&<Dialog open={!modal} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
    <DialogContent ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className="game-modal illustration-modal" showCloseButton={false} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
     <img className={`modal-art ${a?.status==='lost'?'thief-art':'stars-art'}`} src={A+(a?.status==='lost'?'thief.png':a?.status==='abandoned'?'bag.png':'stars.png')} alt=""/>
     <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Монеты забраны!'):a?.status==='lost'?'Вот это белка…':'До новой игры!'}</DialogTitle>
     <DialogDescription>{a?.status==='final_ready'?'Осталось забрать заслуженную награду':a?.status==='won'?(a.reason==='connection'?'Прошло 5 минут без связи. Последний выигрыш автоматически зачислен.':'Тестовые монеты уже на балансе'):a?.status==='lost'?(a.reason==='connection'?'Попытка завершилась после 5 минут без связи на экране белки. Незабранный выигрыш потерян.':a.boosterUsed?'Спасение уже использовано. Вторая белка забрала незабранные монеты.':'Белка забрала незабранные монеты. Выигрыши предыдущих игр сохранились.'):'В этой попытке ещё не было удачных тапов.'}</DialogDescription>
-    {['won','final_ready'].includes(a?.status??'')&&<div className="reward-card"><div><span>Монеты</span><strong>+ {fmt(a?.reward??0)} <Coin/></strong></div>{a?.tap===120&&<div><span>Подарок</span><strong>+ 1 <img className="gift-icon" src={A+'gift.png'} alt="подарок"/></strong></div>}</div>}
+    {['won','final_ready'].includes(a?.status??'')&&<div className="reward-card" ref={rewardOrigin}><div><span>Монеты</span><strong>+ {fmt(a?.reward??0)} <Coin/></strong></div>{a?.tap===120&&<div><span>Подарок</span><strong>+ 1 <img className="gift-icon" src={A+'gift.png'} alt="подарок"/></strong></div>}</div>}
     {spent>0&&<p className="decision-note">За попытку потрачено: {spent} монет. Итог к балансу: {net>0?'+':''}{fmt(net)}.</p>}
-    {a?.status==='final_ready'?<Action onClick={cashout} disabled={blocked}>ЗАБРАТЬ НАГРАДУ</Action>:<><Action onClick={async()=>{await dismissResult();setSelectedMode(state?.freeAvailable?'free':'paid');}} disabled={blocked}>ВЫБРАТЬ НОВУЮ ПОПЫТКУ</Action>{a?.coupon&&<Action secondary onClick={()=>setModal('gifts')}>МОЙ ПОДАРОК</Action>}<button className="text-button" onClick={()=>void dismissResult()} disabled={blocked}>На главную</button></>}
+    {a?.status==='final_ready'?<Action onClick={cashout} disabled={blocked}>ЗАБРАТЬ НАГРАДУ</Action>:<><Action onClick={dismissResult}>ПРОДОЛЖИТЬ</Action>{a?.coupon&&<Action secondary onClick={()=>setModal('gifts')}>МОЙ ПОДАРОК</Action>}</>}
     {error&&<p className="field-error">{error}</p>}{pending&&!busy&&<Action secondary onClick={()=>void send('retry')} disabled={busy}>Проверить операцию</Action>}</div>
    </DialogContent>
   </Dialog>}
