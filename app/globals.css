@@ -85,3 +85,13 @@ body:has(.scene-decision[data-state=open]) [data-slot=dialog-overlay]{background
 @media(prefers-reduced-motion:reduce){.scene-fallback{animation:none}}
 
 .stage-3d.has-scene-decision .progress-info,.stage-3d.has-scene-decision .game-progress{visibility:hidden}
+
+/* Short character speech stays outside the tap target and never stacks. */
+.squirrel-taunt{position:absolute;right:12px;top:36%;z-index:5;display:flex;align-items:center;gap:6px;max-width:164px;padding:8px 10px 8px 5px;background:#fff7e9f5;border:1px solid #b9a08066;border-radius:18px 18px 4px 18px;box-shadow:0 4px 14px #21110b25;pointer-events:none;animation:taunt-in .18s ease-out both}
+.taunt-avatar{flex-shrink:0;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#c9b498;overflow:hidden}.taunt-avatar img{width:100%;height:100%;object-fit:contain}.taunt-speaker{display:block;font-size:12px;line-height:1.15;color:#846140;font-weight:700}.squirrel-taunt p{font-size:13px;line-height:1.25;font-weight:700;color:#442b1e;margin:3px 0 0}
+.home-scene.stage-3d .wallet{font-size:14px;height:32px;min-width:74px;padding-left:10px;gap:4px;background:#ffffffc9;box-shadow:none}.home-scene.stage-3d .wallet .coin{width:28px;height:28px;margin:0}.home-scene.stage-3d .scene-3d{top:18%;bottom:218px}.home-scene.stage-3d .scene-title{top:86px}.home-scene.stage-3d .scene-title h1{font-size:30px}.home-scene.stage-3d .friend-pill{font-size:12px;bottom:233px;padding:7px 10px}
+@keyframes taunt-in{from{opacity:0;transform:translateX(7px) scale(.96)}to{opacity:1;transform:none}}
+@media(max-height:740px){.squirrel-taunt{top:39%;right:9px;max-width:143px;padding:6px 8px 6px 4px}.taunt-avatar{width:28px;height:28px}.squirrel-taunt p{font-size:12px}.home-scene.stage-3d .scene-3d{top:20%;bottom:211px}.home-scene.stage-3d .scene-title{top:80px}.home-scene.stage-3d .scene-title h1{font-size:26px}.home-scene.stage-3d .friend-pill{bottom:221px}}
+@media(prefers-reduced-motion:reduce){.squirrel-taunt{animation:none}}
+.stage-3d .score{font-size:62px;min-height:80px}.stage-3d .score-small{font-size:54px}.stage-3d .score .coin{width:46px;height:46px;transform:translateY(4px)}
+@media(max-height:740px){.stage-3d .score{font-size:48px;min-height:62px}.stage-3d .score-small{font-size:42px}.stage-3d .score .coin{width:38px;height:38px}}

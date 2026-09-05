@@ -7,6 +7,7 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/u
 import {Progress} from '@/components/ui/progress';
 import {Toaster,toast} from 'sonner';
 import {TapQueue} from '@/lib/game/tap-queue';
+import {SquirrelTaunt} from '@/components/squirrel-taunt';
 import {Scene3D} from '@/components/scene-3d';
 import type {SceneHandle} from '@/components/scene-3d';
 import {projectAttempt} from '@/lib/game/tap-plan';
@@ -54,6 +55,7 @@ export default function Game(){
  const [particles,setParticles]=useState<{id:number;amount:number;left:number}[]>([]),[historyCount,setHistoryCount]=useState(20),[pending,setPending]=useState(false);
  const [motionHidden,setMotionHidden]=useState(false),[sceneReady,setSceneReady]=useState(false),[decisionWaiting,setDecisionWaiting]=useState(false),[demoVariant,setDemoVariant]=useState<number|null>(null);
  const sceneControl=useRef<SceneHandle|null>(null);
+ const [squirrelAvatar,setSquirrelAvatar]=useState('');
  useEffect(()=>{const update=()=>setMotionHidden(document.hidden);update();document.addEventListener('visibilitychange',update);return()=>document.removeEventListener('visibilitychange',update);},[]);
  const commandDone=useRef<Promise<void>>(Promise.resolve());
  const [dismissed,setDismissed]=useState<ResultDismissal|null>(null),[credit,setCredit]=useState<WalletCredit|null>(null);
@@ -184,11 +186,12 @@ export default function Game(){
      <Button variant="ghost" className="icon-button help" aria-label="Правила игры" onClick={()=>setModal('rules')}>?</Button>
     </div>
    </header>
-   <Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={demoVariant??Array.from(a?.id??'').reduce((n,c)=>n+c.charCodeAt(0),0)%3} paused={motionHidden||!!modal} onReady={setSceneReady}/>
+   <Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={demoVariant??Array.from(a?.id??'').reduce((n,c)=>n+c.charCodeAt(0),0)%3} paused={motionHidden||!!modal} onReady={setSceneReady} onAvatar={setSquirrelAvatar}/>
+   <SquirrelTaunt attemptId={a?.id} tap={a?.tap??0} active={!onHome&&a?.status==='active'&&!modal&&!motionHidden} avatar={squirrelAvatar}/>
 
    {onHome&&<div className="home-content">
     <div className="scene-title"><h1>Собери пакет</h1></div>
-    <button className="friend-pill" onClick={()=>{setRefMessage('');setModal('referral');}}>+100 за друга</button>
+    <button className="friend-pill" onClick={()=>{setRefMessage('');setModal('referral');}}>Позвать друга</button>
     <div className="home-bottom mode-home">
      <fieldset className="mode-picker"><legend className="sr-only">Выбери свою попытку</legend>
       <label className={`mode-card ${selectedMode==='free'?'selected':''} ${!state?.freeAvailable?'unavailable':''}`}><input type="radio" name="attempt-mode" value="free" checked={selectedMode==='free'} disabled={!state?.freeAvailable||blocked} onChange={()=>setSelectedMode('free')}/><span>Бесплатно</span></label>

@@ -9,7 +9,7 @@ import {pathToFileURL} from 'node:url';
 
 const root=new URL('../',import.meta.url).pathname;
 const temp=await mkdtemp(join(tmpdir(),'bristol-tests-'));
-await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts'),join(root,'lib/game/result-view.ts'),join(root,'lib/game/tap-plan.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
+await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts'),join(root,'lib/game/result-view.ts'),join(root,'lib/game/tap-plan.ts'),join(root,'lib/game/squirrel-taunts.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
 const env={DB:null};globalThis.__TEST_ENV=env;
 const engine=await import(pathToFileURL(join(temp,'lib/game/engine.mjs')));
 const api=await import(pathToFileURL(join(temp,'app/api/game/route.mjs')));
@@ -283,4 +283,20 @@ test('rescue resumes after the same reserved loss and the second squirrel ends t
 test('legacy active attempts receive and retain a plan without changing payouts or charging again',async()=>{
  const first=await send('demo','squirrel');sql.prepare("UPDATE players SET state=json_remove(state,'$.attempt.outcomes')").run();
  const upgraded=await get();assert.equal(upgraded.attempt.outcomes.length,120);assert.equal(upgraded.attempt.id,first.attempt.id);assert.equal(upgraded.balance,first.balance);assert.deepEqual((await get()).attempt.outcomes,upgraded.attempt.outcomes);
+});
+
+const taunts=await import(pathToFileURL(join(temp,'lib/game/squirrel-taunts.mjs')));
+test('squirrel speech has a ten-second cooldown and cannot stack during rapid taps',()=>{
+ let memory={attemptId:'a',count:0,lastAt:0};
+ assert.equal(taunts.nextTaunt(memory,1,1000),null);
+ const first=taunts.nextTaunt(memory,2,1000);assert.ok(first);memory=first.memory;
+ for(let tap=3;tap<=120;tap++)assert.equal(taunts.nextTaunt(memory,tap,1000+tap*10),null);
+ assert.equal(taunts.nextTaunt(memory,12,10999),null);
+ assert.ok(taunts.nextTaunt(memory,12,11000));
+});
+test('one attempt never gets more than four taunts, including a restored checkpoint',()=>{
+ let memory={attemptId:'a',count:0,lastAt:0};const texts=[];
+ for(const [i,tap] of [2,12,35,75].entries()){const next=taunts.nextTaunt(memory,tap,1000+i*10000);assert.ok(next);texts.push(next.text);memory=JSON.parse(JSON.stringify(next.memory));}
+ assert.equal(new Set(texts).size,4);assert.equal(memory.count,4);
+ assert.equal(taunts.nextTaunt(memory,120,999999),null);
 });
