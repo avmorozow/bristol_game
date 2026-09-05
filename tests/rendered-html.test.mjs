@@ -44,6 +44,6 @@ test("renders development preview metadata", async () => {
   const html = await response.text();
   assert.match(html, developmentPreviewMeta);
   assert.match(html, /Бристоль/);
-  assert.match(html, /assets\/home\.png/);
+  assert.match(html, /assets\/background\.png/);
   assert.match(html, /lang="ru"/);
 });

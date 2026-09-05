@@ -9,7 +9,7 @@ import {pathToFileURL} from 'node:url';
 
 const root=new URL('../',import.meta.url).pathname;
 const temp=await mkdtemp(join(tmpdir(),'bristol-tests-'));
-await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts'),join(root,'lib/game/result-view.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
+await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts'),join(root,'lib/game/result-view.ts'),join(root,'lib/game/tap-plan.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
 const env={DB:null};globalThis.__TEST_ENV=env;
 const engine=await import(pathToFileURL(join(temp,'lib/game/engine.mjs')));
 const api=await import(pathToFileURL(join(temp,'app/api/game/route.mjs')));
@@ -201,7 +201,7 @@ test('every queued tap previews the exact cumulative table and a squirrel restor
  for(let n=1;n<=120;n++){const p=feedback.tapPreview(s.attempt,n);assert.equal(p.tap,n);assert.equal(p.reward,engine.payout(n,'paid'));assert.equal(p.pending,true);}
  assert.equal(s.balance,900);assert.equal(s.attempt.reward,0);
  s=step(s,'tap',undefined,()=>0);assert.deepEqual(feedback.tapPreview(s.attempt,45),{tap:1,reward:102,pending:false});
- s=step(s,'booster');assert.match(feedback.encouragement(s.attempt),/Вторая всё ещё может появиться/);
+ s=step(s,'booster');assert.match(feedback.encouragement(s.attempt),/Вторая.*спасени/);
  s=step(s,'tap',undefined,()=>0);assert.deepEqual(feedback.tapPreview(s.attempt,45),{tap:2,reward:0,pending:false});
 });
 test('haptics uses one short pulse and tolerates disabled, unsupported or rejected vibration',()=>{
@@ -252,4 +252,35 @@ test('loss and demo top-up never masquerade as session winnings',()=>{
  assert.equal(resultView.newWalletCredit(initial,topup),null);
  a={...step(step(engine.initialPlayer(),'start'),'tap',undefined,()=>0),referralCode:'guest-a'};const lost={...step(a,'lose'),referralCode:'guest-a'};
  assert.equal(resultView.newWalletCredit(a,lost),null);assert.equal(resultView.resultIsDismissed(lost,resultView.dismissSettledResult(lost)),true);
+});
+
+const plan=await import(pathToFileURL(join(temp,'lib/game/tap-plan.mjs')));
+test('server reserves immutable outcomes and replay or heartbeat never rerolls them',async()=>{
+ const first=await send('start','paid');assert.equal(first.attempt.outcomes.length,120);assert.ok(first.attempt.outcomes.every(x=>typeof x==='boolean'));
+ const second=await get();assert.deepEqual(second.attempt.outcomes,first.attempt.outcomes);
+ const beat=await send('heartbeat');assert.deepEqual(beat.attempt.outcomes,first.attempt.outcomes);
+ const c={id:crypto.randomUUID(),action:'taps',value:{count:20,attemptId:first.attempt.id},revision:beat.revision};
+ const result=await post('player',c);assert.equal(result.status,200);const predicted=plan.projectAttempt(first.attempt,20);
+ assert.equal(result.data.attempt.tap,predicted.tap);assert.equal(result.data.attempt.status,predicted.status);assert.equal(result.data.attempt.reward,predicted.reward);assert.deepEqual(await post('player',c),result);
+});
+test('planned squirrel is visible on its physical tap before either delayed response and never arrives again after stopping',async()=>{
+ let player=plan.reserveTapPlan(step(engine.initialPlayer(),'demo','squirrel'),()=>1),responses=[],views=[];
+ const q=new TapQueue({position:()=>player.attempt,readiness:()=> 'ready',onChange:(_,tap)=>views.push(plan.projectAttempt(player.attempt,tap)),send:count=>new Promise(resolve=>responses.push(()=>{player=step(player,'taps',{count,attemptId:player.attempt.id},()=>{throw Error('must not reroll')});resolve(player.attempt)}))});
+ for(let i=1;i<=4;i++){assert.equal(q.add(),true);assert.equal(views.at(-1).tap,i);assert.equal(views.at(-1).status,i===4?'loss_pending':'active');}
+ assert.equal(q.add(),false);assert.equal(player.attempt.tap,0);const stopped=views.length;responses[0]();await nextTurn();assert.equal(views.at(-1).status,'loss_pending');responses[1]();await q.flush();assert.equal(player.attempt.tap,4);assert.ok(views.slice(stopped).every(v=>v.status==='loss_pending'));q.dispose();
+});
+test('safe taps stay safe after stopping even when later reserved taps contain squirrels',async()=>{
+ let player=plan.reserveTapPlan(step(engine.initialPlayer(),'demo','squirrel'),()=>1),responses=[];
+ const q=new TapQueue({position:()=>player.attempt,readiness:()=> 'ready',send:count=>new Promise(resolve=>responses.push(()=>{player=step(player,'taps',{count,attemptId:player.attempt.id});resolve(player.attempt)}))});
+ q.add();q.add();q.add();assert.equal(plan.projectAttempt(player.attempt,q.preview().tap).status,'active');responses[0]();await nextTurn();responses[1]();await q.flush();assert.equal(player.attempt.tap,3);assert.equal(player.attempt.status,'active');assert.equal(player.balance,1000);q.dispose();
+});
+test('rescue resumes after the same reserved loss and the second squirrel ends the attempt',()=>{
+ let player=plan.reserveTapPlan(step(engine.initialPlayer(),'demo','squirrel'),()=>1);const outcomes=player.attempt.outcomes;
+ player=step(player,'taps',{count:4,attemptId:player.attempt.id});player=step(player,'booster');assert.deepEqual(player.attempt.outcomes,outcomes);assert.equal(plan.tapBoundary(player.attempt),8);
+ const preview=plan.projectAttempt(player.attempt,120);assert.equal(preview.tap,8);assert.equal(preview.status,'lost');assert.equal(preview.reward,0);assert.equal(player.balance,950);
+ player=step(player,'taps',{count:4,attemptId:player.attempt.id});assert.equal(player.attempt.status,'lost');assert.equal(player.balance,950);
+});
+test('legacy active attempts receive and retain a plan without changing payouts or charging again',async()=>{
+ const first=await send('demo','squirrel');sql.prepare("UPDATE players SET state=json_remove(state,'$.attempt.outcomes')").run();
+ const upgraded=await get();assert.equal(upgraded.attempt.outcomes.length,120);assert.equal(upgraded.attempt.id,first.attempt.id);assert.equal(upgraded.balance,first.balance);assert.deepEqual((await get()).attempt.outcomes,upgraded.attempt.outcomes);
 });

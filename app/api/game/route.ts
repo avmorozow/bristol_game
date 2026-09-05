@@ -1,5 +1,6 @@
 import {gameDb} from '@/lib/game/store';
 import {initialPlayer,publicState,transition,expire,referral,GameError,CONFIG,type Player} from '@/lib/game/engine';
+import {reserveTapPlan} from '@/lib/game/tap-plan';
 import {guest} from '@/lib/game/guest';
 export const dynamic='force-dynamic';
 type Row={id:string;code:string;state:string;revision:number;last_command:string;command_response?:string;command_fingerprint?:string};
@@ -12,7 +13,7 @@ async function load(id:string):Promise<Row>{
  if(!row)throw new Error('Missing player');return row;
 }
 function snapshot(row:Row,now:number){return publicState(JSON.parse(row.state),row.revision,row.code,now);}
-async function lazyExpire(row:Row,now:number){const s=expire(JSON.parse(row.state),now);const state=JSON.stringify(s);if(state!==row.state){await gameDb().prepare('UPDATE players SET state=?,revision=revision+1 WHERE id=? AND revision=?').bind(state,row.id,row.revision).run();return load(row.id);}return row;}
+async function lazyExpire(row:Row,now:number){const s=reserveTapPlan(expire(JSON.parse(row.state),now),()=>crypto.getRandomValues(new Uint32Array(1))[0]/4294967296);const state=JSON.stringify(s);if(state!==row.state){await gameDb().prepare('UPDATE players SET state=?,revision=revision+1 WHERE id=? AND revision=?').bind(state,row.id,row.revision).run();return load(row.id);}return row;}
 export async function GET(request:Request){try{const session=(await guest(request,true))!,now=Date.now();const row=await lazyExpire(await load(session.id),now);return json(snapshot(row,now),200,session.cookie);}catch(e){return error(e);}}
 export async function POST(request:Request){try{
  if(request.headers.get('sec-fetch-site')==='cross-site')return json({error:'Недопустимый источник запроса.'},403);
@@ -45,7 +46,7 @@ export async function POST(request:Request){try{
    }
  }else{
    const rnd=()=>crypto.getRandomValues(new Uint32Array(1))[0]/4294967296;
-   next=transition(JSON.parse(row.state),body.action,body.value,now,body.id,rnd);
+   next=reserveTapPlan(transition(JSON.parse(row.state),body.action,body.value,now,body.id,rnd),rnd);
  }
  const response=publicState(next,row.revision+1,row.code,now),token=crypto.randomUUID();
  const update=other?db.prepare('UPDATE players SET state=?,revision=revision+1,last_command=? WHERE id=? AND revision=? AND EXISTS(SELECT 1 FROM players p WHERE p.id=? AND p.revision=?)').bind(JSON.stringify(next),token,id,row.revision,other.id,other.revision):db.prepare('UPDATE players SET state=?,revision=revision+1,last_command=? WHERE id=? AND revision=?').bind(JSON.stringify(next),token,id,row.revision);

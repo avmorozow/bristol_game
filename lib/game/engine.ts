@@ -2,7 +2,7 @@ import table from './economy.json';
 
 export const CONFIG = { mode:'demo', version:'new_balance_120_draft_v1', paidPrice:100, boosterPrice:50, boosterLimit:1, maxTaps:120, referralReward:100, referralDaily:5, referralTotal:20, initialBalance:1000, leaseMs:300000 } as const;
 export type Status = 'active'|'loss_pending'|'final_ready'|'won'|'lost'|'abandoned';
-export type Attempt = { id:string; kind:'free'|'paid'; status:Status; tap:number; reward:number; boosterUsed:boolean; version:string; lastSeen:number; createdAt:number; scenario?:'final'|'squirrel'; coupon?:string; reason?:string };
+export type Attempt = { id:string; kind:'free'|'paid'; status:Status; tap:number; reward:number; boosterUsed:boolean; version:string; lastSeen:number; createdAt:number; scenario?:'final'|'squirrel'; coupon?:string; reason?:string; outcomes?:boolean[] };
 export type Transaction = {id:string; amount:number; label:string; at:number; reason:string};
 export type Player = {balance:number; freeDate:string|null; tutorial:boolean; started:number; attempt:Attempt|null; transactions:Transaction[]; gifts:{id:string;at:number;code:string}[]; invitedBy:string|null; referralDay:string; referralDayCount:number; referralTotal:number};
 export class GameError extends Error { constructor(public code:string,message:string){super(message);} }
@@ -30,7 +30,7 @@ function advanceTap(a:Attempt|null,now:number,random:()=>number){
    if(!a||a.status!=='active')throw new GameError('not_active','Игра уже остановлена.');
    if(a.tap>=CONFIG.maxTaps)throw new GameError('finished','Вы уже дошли до финала.');
    a.tap++;a.reward=payout(a.tap,a.kind);a.lastSeen=now;
-   const loss=a.scenario==='final'?false:a.scenario==='squirrel'?(a.tap===4||a.tap===8):random()<probability(a.tap);
+   const loss=a.outcomes?.[a.tap-1]??(a.scenario==='final'?false:a.scenario==='squirrel'?(a.tap===4||a.tap===8):random()<probability(a.tap));
    if(loss){a.status=a.boosterUsed?'lost':'loss_pending';if(a.boosterUsed)a.reward=0;}
    else if(a.tap===CONFIG.maxTaps)a.status='final_ready';
 }
