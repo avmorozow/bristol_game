@@ -32,6 +32,7 @@ export function WalletCelebration({credit,balance,wallet,origin,fallback,onCompl
    const style={'--coin-x':`${x}px`,'--coin-y':`${y}px`,'--coin-mid-x':`${(x+g.targetX)/2+(i%2?35:-35)}px`,'--coin-mid-y':`${Math.max(16,(y+g.targetY)/2-65-i%3*9)}px`,'--coin-end-x':`${g.targetX-15}px`,'--coin-end-y':`${g.targetY-15}px`,animationDelay:`${i*24}ms`} as CSSProperties;
    return <img className="wallet-flying-coin" src="/assets/coin.png" alt="" width={30} height={30} style={style} key={i}/>;
   })}
+  {!g.reduced&&Array.from({length:14},(_,i)=><i key={i} className="win-confetti" style={{'--confetti-x':`${(i%2?1:-1)*(45+i*9)}px`,'--confetti-y':`${-130+(i%5)*66}px`,'--confetti-rotation':`${i*73}deg`,'--confetti-color':['#ffd56a','#ef293d','#fff2c5'][i%3],'--delay':`${i%4*25}ms`} as CSSProperties}/>)}
   <span className="wallet-credit-label" style={{left:g.left+g.width/2,top:g.top+g.height+8}}>+{new Intl.NumberFormat('ru-RU').format(credit.amount)}</span>
  </div>,document.body);
 }
