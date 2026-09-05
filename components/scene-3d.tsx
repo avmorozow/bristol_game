@@ -2,7 +2,7 @@
 import {forwardRef,useEffect,useImperativeHandle,useRef,useState} from 'react';
 import type {Status} from '@/lib/game/engine';
 export type SceneHandle={tap:()=>void};
-type Props={status:Status|'home';attemptId?:string;boosterUsed?:boolean;variant?:number;paused:boolean;onReady:(ready:boolean)=>void;onAvatar?:(src:string)=>void};
+type Props={status:Status|'home';attemptId?:string;boosterUsed?:boolean;variant?:number;paused:boolean;onReady:(ready:boolean)=>void};
 export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
  const host=useRef<HTMLDivElement>(null),live=useRef(props),impulse=useRef(0),tapSerial=useRef(0),lean=useRef(0),[failed,setFailed]=useState(false);live.current=props;
  useImperativeHandle(ref,()=>({tap:()=>{impulse.current=1;tapSerial.current++;if(tapSerial.current%3===0)lean.current=tapSerial.current%2?.075:-.075;}}),[]);
@@ -19,9 +19,6 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
    for(let x=-4;x<=4;x++)for(let z=-1;z<=1;z++){const tile=new T.Mesh(new T.BoxGeometry(1.38,.075,1.32),new T.MeshStandardMaterial({color:(x+z)%2?0x8b8580:0x928c86,roughness:.98}));tile.position.set(x*1.4,-.085,z*1.34);floor.add(tile);}
    const shadowMaterial=new T.MeshBasicMaterial({color:0x413b35,transparent:true,opacity:.16,depthWrite:false});
    const shadow=(radius:number)=>{const o=new T.Mesh(new T.CircleGeometry(radius,32),shadowMaterial);o.rotation.x=-Math.PI/2;o.position.y=-.041;scene.add(o);return o;};const bagShadow=shadow(.53),squirrelShadow=shadow(.45);
-   // Portrait comes from the actual model, so the speaker and scene match.
-   const {SoftwareRenderer}=await import('@/lib/game/software-renderer');if(dead)return;
-   const portrait=new SoftwareRenderer();portrait.setSize(80,80);const portraitScene=new T.Scene(),portraitHead=m.head.clone();portraitHead.position.set(0,0,0);portraitHead.scale.setScalar(1);portraitHead.rotation.y=-.15;portraitScene.add(portraitHead);const portraitCamera=new T.PerspectiveCamera(36,1,.1,10);portraitCamera.position.set(0,.13,2.35);portraitCamera.lookAt(0,.13,0);portrait.render(portraitScene,portraitCamera);live.current.onAvatar?.(portrait.domElement.toDataURL());portrait.dispose();
    const flights=m.products.map(()=>({age:9,side:1}));let productCursor=0,lastTapSerial=0;
    let dirty=true;const size=()=>{dirty=true;if(!el.clientWidth||!el.clientHeight)return;camera.aspect=el.clientWidth/el.clientHeight;camera.position.z=camera.aspect<.85?8.1:7.6;camera.updateProjectionMatrix();if(renderer instanceof T.WebGLRenderer)renderer.setSize(el.clientWidth,el.clientHeight,false);else renderer.setSize(el.clientWidth,el.clientHeight);};size();const observer=new ResizeObserver(size);observer.observe(el);
    const reduced=matchMedia('(prefers-reduced-motion: reduce)');let phase='idle',phaseTime=0,time=0,last=0,frame=0,previousId='',previousStatus='',previousBoost=false,side=1,variant=0;let ready=false;
@@ -51,7 +48,7 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
     // Fixed pool: latest taps trigger short product arcs, never a delayed queue.
     if(lastTapSerial!==tapSerial.current){lastTapSerial=tapSerial.current;if(p.status==='active'&&!reduced.matches)for(let j=0;j<2;j++){const i=productCursor++%m.products.length;flights[i]={age:0,side:(i%2?1:-1)};}}
     let flying=0;flights.forEach((f,i)=>{f.age+=dt;const item=m.products[i],wasVisible=item.visible;item.visible=p.status==='active'&&!reduced.matches&&f.age<.68;if(wasVisible!==item.visible)dirty=true;if(!item.visible)return;flying++;const u=f.age/.68;item.position.set(f.side*(.12+.72*u),2.48+Math.sin(u*Math.PI)*.62-u*.22,.35+u*.36);item.rotation.set(u*5,f.side*u*7,u*3);item.scale.setScalar((1-Math.max(0,(u-.7)/.3))*.85);});
-    bagShadow.visible=m.bag.visible;squirrelShadow.visible=m.squirrel.visible;bagShadow.position.x=m.bag.position.x;bagShadow.position.z=m.bag.position.z;bagShadow.scale.set(m.bag.scale.x,1,m.bag.scale.z);squirrelShadow.position.x=m.squirrel.position.x;squirrelShadow.position.z=m.squirrel.position.z;
+    m.squirrel.visible=false;if(['loss_pending','lost'].includes(p.status))m.bag.visible=false;bagShadow.visible=m.bag.visible;squirrelShadow.visible=m.squirrel.visible;bagShadow.position.x=m.bag.position.x;bagShadow.position.z=m.bag.position.z;bagShadow.scale.set(m.bag.scale.x,1,m.bag.scale.z);squirrelShadow.position.x=m.squirrel.position.x;squirrelShadow.position.z=m.squirrel.position.z;
     if(el.dataset.products!==String(flying))el.dataset.products=String(flying);el.dataset.ground='stone';if(el.dataset.lean!==lean.current.toFixed(3))el.dataset.lean=lean.current.toFixed(3);
     if(!dirty&&ready&&!flying&&((software&&['idle','caught'].includes(phase)&&phaseTime>.5&&impulse.current<.01&&Math.abs(lean.current)<.003)||(phase==='escape'&&t>1.2)||(software&&phase==='win'&&t>1.5)))return;
     renderer.render(scene,camera);dirty=false;if(!ready){ready=true;el.dataset.renderer=software?'software-3d':'webgl';p.onReady(true);}
@@ -61,5 +58,5 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
   }catch{if(!dead){setFailed(true);live.current.onReady(true);}}})();
   return()=>{dead=true;cleanup();};
  },[]);
- return <div ref={host} className="scene-3d" aria-hidden="true" data-testid="scene-3d">{failed&&<div className={`scene-fallback fallback-${props.status}`}><img src="/assets/bag-3d.webp" alt=""/>{['loss_pending','lost'].includes(props.status)&&<img src="/assets/squirrel-3d.webp" alt=""/>}</div>}</div>;
+ return <div ref={host} className="scene-3d" aria-hidden="true" data-testid="scene-3d">{failed&&<div className={`scene-fallback fallback-${props.status}`}><img src="/assets/bag-3d.webp" alt=""/>{['loss_pending','lost'].includes(props.status)&&<img src="/assets/thief.png" alt=""/>}</div>}</div>;
 });

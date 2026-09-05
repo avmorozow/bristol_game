@@ -7,6 +7,7 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/u
 import {Progress} from '@/components/ui/progress';
 import {Toaster,toast} from 'sonner';
 import {TapQueue} from '@/lib/game/tap-queue';
+import {OriginalSquirrel} from '@/components/original-squirrel';
 import {SquirrelTaunt} from '@/components/squirrel-taunt';
 import {Scene3D} from '@/components/scene-3d';
 import type {SceneHandle} from '@/components/scene-3d';
@@ -39,7 +40,7 @@ function Action({children,onClick,disabled,secondary=false,className=''}:{childr
 const tutorial=[
  {title:'Собери пакет',text:'Нажимай на пакет — каждый удачный тап увеличивает выигрыш.',image:'bag-3d.webp'},
  {title:'Забирай вовремя',text:'Монеты твои, когда нажмёшь «Забрать». Можно остановиться после любого удачного тапа.',image:'coin.png'},
- {title:'Остерегайся белки',text:'Белка может забрать весь выигрыш. Один раз за игру её можно отогнать за 50 монет.',image:'squirrel-3d.webp'},
+ {title:'Остерегайся белки',text:'Белка может забрать весь выигрыш. Один раз за игру её можно отогнать за 50 монет.',image:'thief.png'},
  {title:'Дойди до подарка',text:'Пройди 120 тапов, забери монеты и получи подарок. Здесь монеты и подарки тестовые.',image:'stars.png'},
 ];
 
@@ -55,7 +56,6 @@ export default function Game(){
  const [particles,setParticles]=useState<{id:number;amount:number;left:number}[]>([]),[historyCount,setHistoryCount]=useState(20),[pending,setPending]=useState(false);
  const [motionHidden,setMotionHidden]=useState(false),[sceneReady,setSceneReady]=useState(false),[decisionWaiting,setDecisionWaiting]=useState(false),[demoVariant,setDemoVariant]=useState<number|null>(null);
  const sceneControl=useRef<SceneHandle|null>(null);
- const [squirrelAvatar,setSquirrelAvatar]=useState('');
  useEffect(()=>{const update=()=>setMotionHidden(document.hidden);update();document.addEventListener('visibilitychange',update);return()=>document.removeEventListener('visibilitychange',update);},[]);
  const commandDone=useRef<Promise<void>>(Promise.resolve());
  const [dismissed,setDismissed]=useState<ResultDismissal|null>(null),[credit,setCredit]=useState<WalletCredit|null>(null);
@@ -162,6 +162,7 @@ export default function Game(){
   try{localStorage.setItem('bristol-result-view',JSON.stringify(next));}catch{}
  };
  async function decide(action:'booster'|'lose'){if(decisionWaiting)return;setDecisionWaiting(true);try{await tapQueue.current?.flush();await commandDone.current;if(!pendingCommand.current)await send(action);}finally{setDecisionWaiting(false);}}
+ const squirrelVariant=demoVariant??Array.from(a?.id??'').reduce((n,c)=>n+c.charCodeAt(0),0)%3;
  const preview={tap:a?.tap??0,reward:a?.reward??0,pending:false};
  useEffect(()=>{audioEngine.current?.setActive(playing);audioEngine.current?.setTension(a?.status==='loss_pending'?1:(a?.tap??0)/120);},[playing,a?.status,a?.tap]);
  const remaining=state?.freeDate?Math.max(0,new Date(state.freeDate+'T00:00:00Z').getTime()+86400000-clock):0;
@@ -186,8 +187,9 @@ export default function Game(){
      <Button variant="ghost" className="icon-button help" aria-label="Правила игры" onClick={()=>setModal('rules')}>?</Button>
     </div>
    </header>
-   <Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={demoVariant??Array.from(a?.id??'').reduce((n,c)=>n+c.charCodeAt(0),0)%3} paused={motionHidden||!!modal} onReady={setSceneReady} onAvatar={setSquirrelAvatar}/>
-   <SquirrelTaunt attemptId={a?.id} tap={a?.tap??0} active={!onHome&&a?.status==='active'&&!modal&&!motionHidden} avatar={squirrelAvatar}/>
+   <Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} paused={motionHidden||!!modal} onReady={setSceneReady}/>
+   <OriginalSquirrel home={onHome} attemptId={a?.id} boosterUsed={a?.boosterUsed}/>
+   <SquirrelTaunt attemptId={a?.id} tap={a?.tap??0} active={!onHome&&a?.status==='active'&&!modal&&!motionHidden}/>
 
    {onHome&&<div className="home-content">
     <div className="scene-title"><h1>Собери пакет</h1></div>
@@ -220,15 +222,16 @@ export default function Game(){
     <div className="game-bottom"><Action onClick={cashout} disabled={loading||cashoutWaiting||(pending&&!busy)||(busy&&!['taps','heartbeat'].includes(activeAction.current))||(!a?.tap&&!tapBacklog)||a?.status!=='active'} secondary className="cashout-button">{cashoutWaiting?<Loader2 size={21} className="spin"/>:null}{cashoutWaiting?'ЗАБИРАЕМ…':'ЗАБРАТЬ МОНЕТЫ'}</Action></div>
    </>}
 
-   <p className="game-whisper" key={`${a?.id}-${a?.boosterUsed}-${Math.floor((a?.tap??0)/20)}`}>{encouragement(onHome?null:a)}</p>
+   {!result&&a?.status!=='loss_pending'&&a?.status!=='final_ready'&&<p className="game-whisper" key={`${a?.id}-${a?.boosterUsed}-${Math.floor((a?.tap??0)/20)}`}>{encouragement(onHome?null:a)}</p>}
    {error&&<div className="connection-notice" role="alert"><span>{error}</span><button onClick={()=>pending?void send('retry'):void refresh()} disabled={busy}>Повторить</button></div>}
    {!error&&pending&&!busy&&<div className="connection-notice" role="status"><span>Осталось проверить последнее действие</span><button onClick={()=>void send('retry')} disabled={busy}>Проверить</button></div>}
    <button className="demo-label" onClick={()=>setModal('demo')}>Демо · монеты</button>
   </section>
 
   <Dialog open={a?.status==='loss_pending'&&!modal} onOpenChange={()=>{}}>
-   <DialogContent ref={lossFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();lossFocus.current?.focus();}} className="game-modal scene-decision" showCloseButton={false} onEscapeKeyDown={e=>e.preventDefault()} onPointerDownOutside={e=>e.preventDefault()}>
-    <div className="modal-body"><DialogTitle>Вернуть пакет?</DialogTitle><DialogDescription>Одно спасение. Вторая белка — конец игры.</DialogDescription>
+   <DialogContent ref={lossFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();lossFocus.current?.focus();}} className={`game-modal scene-decision squirrel-popup squirrel-path-${squirrelVariant}`} showCloseButton={false} onEscapeKeyDown={e=>e.preventDefault()} onPointerDownOutside={e=>e.preventDefault()}>
+    <div className="squirrel-popup-art"><img src={A+'thief.png'} alt="Белка забрала пакет"/></div>
+    <div className="modal-body"><DialogTitle>Вернуть пакет?</DialogTitle><DialogDescription className="sr-only">Одно спасение за попытку</DialogDescription>
     <Action onClick={()=>void decide('booster')} disabled={decisionWaiting||(pending&&!busy)||(state?.balance??0)<50}>ОТОГНАТЬ ЗА 50 <Coin/></Action>
     {(state?.balance??0)<50&&<p className="field-error">Не хватает монет для спасения</p>}
     <Action secondary onClick={()=>void decide('lose')} disabled={decisionWaiting||(pending&&!busy)}>ЗАКОНЧИТЬ ИГРУ</Action>{error&&<p className="field-error">{error}</p>}{pending&&!busy&&<Action secondary onClick={()=>void send('retry')} disabled={busy}>Проверить операцию</Action>}</div>
@@ -236,7 +239,8 @@ export default function Game(){
   </Dialog>
 
   {a&&(result||a.status==='final_ready')&&<Dialog open={!modal} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
-   <DialogContent ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className="game-modal scene-decision" showCloseButton={false} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
+   <DialogContent ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${a.status==='lost'?`squirrel-popup squirrel-path-${squirrelVariant}`:''}`} showCloseButton={false} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
+    {a.status==='lost'&&<div className={`squirrel-popup-art ${a.boosterUsed?'':'squirrel-already-here'}`}><img src={A+'thief.png'} alt="Белка унесла пакет"/></div>}
     <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Монеты забраны!'):a?.status==='lost'?'Вот это белка…':'До новой игры!'}</DialogTitle>
     <DialogDescription className="sr-only">{a.status==='lost'?'Незабранные монеты потеряны':'Результат попытки'}</DialogDescription>
     {['won','final_ready'].includes(a?.status??'')&&<div className="reward-card" ref={rewardOrigin}><div><span>Монеты</span><strong>+ {fmt(a?.reward??0)} <Coin/></strong></div>{a?.tap===120&&<div><span>Подарок</span><strong>+ 1 <img className="gift-icon" src={A+'gift.png'} alt="подарок"/></strong></div>}</div>}
