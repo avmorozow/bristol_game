@@ -134,3 +134,13 @@ The final loss result now uses the same contained composition as a win, with a s
 Added an original three-beat descending loss sting: 240 ms, 240 ms, then an 850 ms falling sustained note (about 1.5 seconds overall). Final loss from a physical tap is immediate; choosing to end the rescue decision plays it on confirmed loss, without replay on command retry or refresh. A shorter danger cue marks the rescue opportunity. Background music now stops while deciding or viewing a result. Global mute, effects preference and hidden-page handling remain respected.
 
 QA: browser flow through first squirrel → finish, and first squirrel → rescue → second squirrel → loss → Continue. Inspected desktop, 390×844, 320×568 and 844×390. DOM confirmed one canvas with a visible sad bag; visual checks used the software renderer of the same geometry. Audio timing, descending pitch, long final duration and mute/effects/hidden handling are covered by the added audio regression test. Production build and TypeScript passed; all 54 tests passed. Temporary responsive QA files were removed before build.
+
+## Rescue price, progress spacing and idle hint — 6 September 2026
+
+Rescue now costs 100 coins in the engine, button, affordability check, rules, tutorial and README. The UI reads the configured rescue price. Existing historical transactions are unchanged.
+
+During play the progress section and scene are separate flex rows, with a 10–16 px gap before the canvas, including the in-progress theft animation. This removes the overlapping independent percentage offsets. Result cards retain their existing layout.
+
+An active visible attempt with no tap for 12 seconds gets one friendly squirrel hint: “Не бойся! Тапай на пакет, копи монеты.” A tap resets the inactivity timer and dismisses a visible hint with the existing exit animation. The hint shares the four-message session budget, ten-second speech cooldown and persisted per-attempt memory. It does not run on the home screen, under another modal or while the page is hidden, and never triggers a theft.
+
+Browser QA: 390×844 and 320×568 gameplay screenshots show separated progress and bag; desktop DOM measured a 16 px gap between progress and scene. Rescue reduced the wallet from 20,601 to 20,501. A fresh demo attempt at zero taps displayed the hint after a 12-second wait; the following tap immediately showed 1/120 and 2 coins. Temporary responsive QA wrapper removed before build. Production build and TypeScript passed. All 56 tests passed, including new tests for the 100-coin boundary/idempotent retry and idle-hint timing/budget/cooldown.

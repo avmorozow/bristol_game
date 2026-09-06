@@ -165,3 +165,9 @@ body:has(.success-result[data-state=open]) [data-slot=dialog-overlay]{background
 .loss-result .success-reward strong{color:#826f71}
 .loss-result .success-reward .coin{filter:saturate(.3);opacity:.7}
 .loss-result .success-reward>span{color:#886f74}
+/* Progress and character occupy separate rows, including during the theft animation. */
+.play-scene.stage-3d:not(.has-scene-decision){display:flex;flex-direction:column;padding-top:max(90px,calc(env(safe-area-inset-top) + 66px));padding-bottom:166px}
+.play-scene.stage-3d:not(.has-scene-decision)>.score-zone{position:relative;inset:auto;margin:0 26px;flex:none;order:0}
+.play-scene.stage-3d:not(.has-scene-decision)>.scene-3d{position:relative;inset:auto;flex:1;min-height:0;width:100%;margin-top:16px;order:1}
+@media(max-height:740px){.play-scene.stage-3d:not(.has-scene-decision){padding-top:max(76px,calc(env(safe-area-inset-top) + 62px));padding-bottom:154px}.play-scene.stage-3d:not(.has-scene-decision)>.scene-3d{margin-top:12px}}
+@media(max-height:640px){.play-scene.stage-3d:not(.has-scene-decision){padding-bottom:142px}.play-scene.stage-3d .score{font-size:40px;min-height:48px}.play-scene.stage-3d .score-zone{margin-inline:18px}.play-scene.stage-3d .progress-info{margin-bottom:6px}.play-scene.stage-3d:not(.has-scene-decision)>.scene-3d{margin-top:10px}}

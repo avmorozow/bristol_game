@@ -42,13 +42,13 @@ test('daily free quota is consumed at start and resets at UTC midnight',()=>{
  let s=step(engine.initialPlayer(),'start');const id=s.attempt.id;s=step(s,'close',id);s=step(s,'start');assert.equal(s.attempt.kind,'paid');assert.equal(s.balance,900);s=step(s,'close',s.attempt.id);s=step(s,'start',undefined,()=>1,Date.UTC(2026,8,5));assert.equal(s.attempt.kind,'free');assert.equal(s.balance,900);
 });
 test('booster saves the same failed tap without reroll and second loss ends with zero',()=>{
- let s=step(engine.initialPlayer(),'start');s=step(s,'tap',undefined,()=>0);assert.equal(s.attempt.status,'loss_pending');const reward=s.attempt.reward;s=step(s,'booster');assert.equal(s.balance,950);assert.equal(s.attempt.tap,1);assert.equal(s.attempt.reward,reward);assert.equal(s.attempt.status,'active');s=step(s,'tap',undefined,()=>0);assert.equal(s.attempt.status,'lost');assert.equal(s.attempt.reward,0);assert.throws(()=>step(s,'booster'),e=>e.code==='booster_unavailable');
+ let s=step(engine.initialPlayer(),'start');s=step(s,'tap',undefined,()=>0);assert.equal(s.attempt.status,'loss_pending');const reward=s.attempt.reward;s=step(s,'booster');assert.equal(s.balance,900);assert.equal(s.attempt.tap,1);assert.equal(s.attempt.reward,reward);assert.equal(s.attempt.status,'active');s=step(s,'tap',undefined,()=>0);assert.equal(s.attempt.status,'lost');assert.equal(s.attempt.reward,0);assert.throws(()=>step(s,'booster'),e=>e.code==='booster_unavailable');
 });
 test('cashout credits once; close cannot credit again',()=>{
  let s=step(engine.initialPlayer(),'start');s=step(s,'tap');s=step(s,'cashout');assert.equal(s.balance,1002);s=step(s,'close',s.attempt.id);assert.equal(s.balance,1002);assert.equal(s.transactions.length,1);assert.throws(()=>step(s,'cashout'));
 });
 test('final tap produces one gift only when settled, including rescue on tap120',()=>{
- let s=step(engine.initialPlayer(),'start');for(let n=1;n<120;n++)s=step(s,'tap');s=step(s,'tap',undefined,()=>0);assert.equal(s.attempt.status,'loss_pending');assert.equal(s.gifts.length,0);s=step(s,'booster');assert.equal(s.attempt.status,'final_ready');s=step(s,'cashout');assert.equal(s.balance,3300);assert.equal(s.gifts.length,1);assert.equal(step(s,'close',s.attempt.id).gifts.length,1);
+ let s=step(engine.initialPlayer(),'start');for(let n=1;n<120;n++)s=step(s,'tap');s=step(s,'tap',undefined,()=>0);assert.equal(s.attempt.status,'loss_pending');assert.equal(s.gifts.length,0);s=step(s,'booster');assert.equal(s.attempt.status,'final_ready');s=step(s,'cashout');assert.equal(s.balance,3250);assert.equal(s.gifts.length,1);assert.equal(step(s,'close',s.attempt.id).gifts.length,1);
 });
 test('expired active attempt pays last confirmed total; expired squirrel pays nothing',()=>{
  let s=step(engine.initialPlayer(),'start');s=step(s,'tap');let expired=engine.expire(s,now+engine.CONFIG.leaseMs+1);assert.equal(expired.balance,1002);assert.equal(expired.attempt.reason,'connection');assert.equal(engine.expire(expired,now+engine.CONFIG.leaseMs*2).balance,1002);
@@ -83,7 +83,7 @@ test('referral quota limits rewards without charging the unsuccessful invitee',a
  const inviter=await get('friend');for(let i=0;i<5;i++)await send('referral',inviter.referralCode,'invitee'+i);const newcomer=await get('newcomer');const r=await post('newcomer',{id:crypto.randomUUID(),action:'referral',value:inviter.referralCode,revision:newcomer.revision});assert.equal(r.data.code,'referral_limit');assert.equal((await get('newcomer')).balance,1000);assert.equal((await get('friend')).balance,1500);
 });
 test('insufficient funds cannot buy a paid attempt or a booster',()=>{
- let s=engine.initialPlayer();s.balance=99;s.freeDate=engine.utcDate(now);assert.throws(()=>step(s,'start'),e=>e.code==='insufficient_funds');assert.equal(s.balance,99);s.freeDate=null;s=step(s,'start');s.balance=49;s=step(s,'tap',undefined,()=>0);assert.throws(()=>step(s,'booster'),e=>e.code==='insufficient_funds');assert.equal(s.balance,49);assert.equal(s.attempt.status,'loss_pending');
+ let s=engine.initialPlayer();s.balance=99;s.freeDate=engine.utcDate(now);assert.throws(()=>step(s,'start'),e=>e.code==='insufficient_funds');assert.equal(s.balance,99);s.freeDate=null;s=step(s,'start');s.balance=99;s=step(s,'tap',undefined,()=>0);assert.throws(()=>step(s,'booster'),e=>e.code==='insufficient_funds');assert.equal(s.balance,99);assert.equal(s.attempt.status,'loss_pending');
 });
 
 test('guest profile plays without ChatGPT headers and restores the same wallet',async()=>{
@@ -290,8 +290,8 @@ test('safe taps stay safe after stopping even when later reserved taps contain s
 test('rescue resumes after the same reserved loss and the second squirrel ends the attempt',()=>{
  let player=plan.reserveTapPlan(step(engine.initialPlayer(),'demo','squirrel'),()=>1);const outcomes=player.attempt.outcomes;
  player=step(player,'taps',{count:4,attemptId:player.attempt.id});player=step(player,'booster');assert.deepEqual(player.attempt.outcomes,outcomes);assert.equal(plan.tapBoundary(player.attempt),8);
- const preview=plan.projectAttempt(player.attempt,120);assert.equal(preview.tap,8);assert.equal(preview.status,'lost');assert.equal(preview.reward,0);assert.equal(player.balance,950);
- player=step(player,'taps',{count:4,attemptId:player.attempt.id});assert.equal(player.attempt.status,'lost');assert.equal(player.balance,950);
+ const preview=plan.projectAttempt(player.attempt,120);assert.equal(preview.tap,8);assert.equal(preview.status,'lost');assert.equal(preview.reward,0);assert.equal(player.balance,900);
+ player=step(player,'taps',{count:4,attemptId:player.attempt.id});assert.equal(player.attempt.status,'lost');assert.equal(player.balance,900);
 });
 test('legacy active attempts receive and retain a plan without changing payouts or charging again',async()=>{
  const first=await send('demo','squirrel');sql.prepare("UPDATE players SET state=json_remove(state,'$.attempt.outcomes')").run();
@@ -338,4 +338,27 @@ test('loss sting starts immediately with three descending beats and a long final
   h.audio.configure({muted:true,music:false,effects:true});h.audio.play('loss');assert.equal(voices.length,n);
   h.audio.configure({muted:false,music:false,effects:true});h.audio.setHidden(true);h.audio.play('loss');assert.equal(voices.length,n);
  }finally{h.audio.dispose();}
+});
+
+test('idle squirrel hint waits for inactivity, shares the speech budget and is once per attempt',()=>{
+ const fresh={attemptId:'idle',count:0,lastAt:0};
+ assert.equal(taunts.nextIdleTaunt(fresh,11999,0),null);
+ const hint=taunts.nextIdleTaunt(fresh,12000,0);assert.ok(hint);assert.match(hint.text,/Тапай на пакет/);
+ assert.equal(hint.memory.count,1);assert.equal(taunts.nextIdleTaunt(hint.memory,999999,0),null);
+ assert.equal(taunts.nextTaunt(hint.memory,120,12001),null);
+ let memory=hint.memory;
+ for(let n=0;n<3;n++)memory=taunts.nextTaunt(memory,120,22000+n*10000).memory;
+ assert.equal(taunts.nextTaunt(memory,120,999999),null);assert.equal(taunts.nextIdleTaunt({...fresh,count:4},999999,0),null);
+ assert.equal(taunts.nextIdleTaunt(fresh,15000,5000),null,'a new tap postpones the hint');
+ assert.equal(taunts.nextIdleTaunt({...fresh,count:1,lastAt:10000},15000,0),null,'respects speech cooldown');
+});
+
+test('rescue costs exactly 100, rejects 99, and replay never charges twice',async()=>{
+ let poor=step(engine.initialPlayer(),'demo','squirrel');poor=step(poor,'taps',{count:4,attemptId:poor.attempt.id});poor.balance=99;
+ assert.throws(()=>step(poor,'booster'),e=>e.code==='insufficient_funds');assert.equal(poor.balance,99);
+ poor.balance=100;assert.equal(step(poor,'booster').balance,0);
+ let player=await send('demo','squirrel');player=await send('taps',{count:4,attemptId:player.attempt.id});
+ const command={id:crypto.randomUUID(),action:'booster',revision:player.revision};
+ const first=await post('player',command);assert.equal(first.status,200);assert.equal(first.data.balance,player.balance-100);
+ const retry=await post('player',command);assert.equal(retry.data.balance,first.data.balance);assert.equal((await get()).balance,first.data.balance);
 });
