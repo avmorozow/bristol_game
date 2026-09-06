@@ -1,4 +1,4 @@
-export type SoundKind='tap'|'win'|'loss'|'rescue'|'start';
+export type SoundKind='tap'|'win'|'loss'|'caught'|'rescue'|'start';
 export type AudioPreferences={muted:boolean;music:boolean;effects:boolean};
 // Original arcade funk: syncopated bass, clean beat and bright C-major hooks.
 // Scheduled ahead on the audio clock; music never runs inside the tap transport.
@@ -34,13 +34,13 @@ export class GameAudio{
    void this.ctx.resume().then(()=>this.sync()).catch(()=>{});this.sync();
   }catch{/* Audio support must never block a tap. */}
  }
- private tone(f:number,time:number,length:number,volume:number,type:OscillatorType='sine',music=false,endFrequency?:number){
+ private tone(f:number,time:number,length:number,volume:number,type:OscillatorType='sine',music=false,endFrequency?:number,hold=0){
   if(!this.ctx||!this.master||!this.musicBus)return;
   // Even rapid taps cannot create an unbounded pile of voices.
   if(this.notes.size>=64){const oldest=this.notes.values().next().value;try{oldest?.stop();}catch{}if(oldest)this.notes.delete(oldest);}
   const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.setValueAtTime(f,time);
   if(endFrequency)o.frequency.exponentialRampToValueAtTime(endFrequency,time+length);
-  g.gain.setValueAtTime(.0001,time);g.gain.exponentialRampToValueAtTime(volume,time+.008);g.gain.exponentialRampToValueAtTime(.0001,time+length);
+  g.gain.setValueAtTime(.0001,time);g.gain.exponentialRampToValueAtTime(volume,time+.008);if(hold)g.gain.setValueAtTime(volume*.8,time+length*hold);g.gain.exponentialRampToValueAtTime(.0001,time+length);
   o.connect(g);g.connect(music?this.musicBus:this.master);this.notes.add(o);
   o.onended=()=>{this.notes.delete(o);o.disconnect();g.disconnect();};o.start(time);o.stop(time+length+.01);
  }
@@ -54,8 +54,17 @@ export class GameAudio{
    if(tap&&tap%20===0)[76,79,84].forEach((n,i)=>this.tone(hz(n),now+i*.045,.16,.075,'sine'));
    return;
   }
-  const notes=kind==='win'?[72,76,79,84]:kind==='loss'?[76,72,68,57]:kind==='rescue'?[67,72,79,84]:[60,64,67];
-  notes.forEach((n,i)=>this.tone(hz(n),now+i*.09,kind==='loss'?.2:.18,.2,kind==='loss'?'triangle':'sine'));
+  if(kind==='loss'){
+   // Three descending brass-like notes: two short beats and a long falling tail.
+   // Starts on the physical losing tap, independent of server response latency.
+   [[55,0,.24],[53,.32,.24],[48,.68,.85]].forEach(([n,offset,length])=>{
+    this.tone(hz(n),now+offset,length,.24,'triangle',false,hz(n-(length>.5?2:.15)),.45);
+    this.tone(hz(n+12),now+offset,length,.035,'sine',false,hz(n+12-(length>.5?2:.15)),.45);
+   });
+   return;
+  }
+  const notes=kind==='win'?[72,76,79,84]:kind==='caught'?[67,60]:kind==='rescue'?[67,72,79,84]:[60,64,67];
+  notes.forEach((n,i)=>this.tone(hz(n),now+i*.09,.18,.2,kind==='caught'?'triangle':'sine'));
  }
  private sync(){
   if(!this.ctx||!this.master||!this.musicBus)return;

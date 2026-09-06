@@ -5,7 +5,7 @@ import {TapLoot,type TapLootHandle} from '@/components/tap-loot';
 import {SquirrelHeist,type TheftCue} from '@/components/squirrel-heist';
 import {theftFrame} from '@/lib/game/theft-timeline';
 export type SceneHandle={tap:()=>void};
-type Props={presentation?:'game'|'reward';status:Status|'home';attemptId?:string;boosterUsed?:boolean;variant?:number;theft?:TheftCue|null;onTheftDone:()=>void;paused:boolean;onReady:(ready:boolean)=>void};
+type Props={presentation?:'game'|'reward'|'loss';status:Status|'home';attemptId?:string;boosterUsed?:boolean;variant?:number;theft?:TheftCue|null;onTheftDone:()=>void;paused:boolean;onReady:(ready:boolean)=>void};
 export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
  const loot=useRef<TapLootHandle|null>(null);
  const host=useRef<HTMLDivElement>(null),live=useRef(props),impulse=useRef(0),tapSerial=useRef(0),lean=useRef(0),[failed,setFailed]=useState(false);live.current=props;
@@ -19,12 +19,12 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
    scene.add(new T.HemisphereLight(0xffecd9,0x8e5366,2.8));const key=new T.DirectionalLight(0xffefd8,3.6);key.position.set(-3,6,5);scene.add(key);const rim=new T.DirectionalLight(0xffd69e,2.4);rim.position.set(3,3,-3);scene.add(rim);const fill=new T.DirectionalLight(0xffffff,1.1);fill.position.set(3,2,4);scene.add(fill);
    const m=buildCharacters(software);scene.add(m.bag,m.squirrel,...m.products);m.squirrel.visible=false;
    // The entire chase takes place on the same tiled shop floor.
-   const floor=new T.Group();floor.userData.ground=true;floor.visible=live.current.presentation!=='reward';scene.add(floor);
+   const floor=new T.Group();floor.userData.ground=true;floor.visible=!live.current.presentation||live.current.presentation==='game';scene.add(floor);
    for(let x=-4;x<=4;x++)for(let z=-1;z<=1;z++){const tile=new T.Mesh(new T.BoxGeometry(1.38,.075,1.32),new T.MeshStandardMaterial({color:(x+z)%2?0x8b8580:0x928c86,roughness:.98}));tile.position.set(x*1.4,-.085,z*1.34);floor.add(tile);}
    const shadowMaterial=new T.MeshBasicMaterial({color:0x413b35,transparent:true,opacity:.16,depthWrite:false});
    const shadow=(radius:number)=>{const o=new T.Mesh(new T.CircleGeometry(radius,32),shadowMaterial);o.rotation.x=-Math.PI/2;o.position.y=-.041;scene.add(o);return o;};const bagShadow=shadow(.53),squirrelShadow=shadow(.45);
    const flights=m.products.map(()=>({age:9,side:1}));let productCursor=0,lastTapSerial=0;
-   let dirty=true;const size=()=>{dirty=true;if(!el.clientWidth||!el.clientHeight)return;camera.aspect=el.clientWidth/el.clientHeight;camera.position.z=live.current.presentation==='reward'?6.4:camera.aspect<.85?8.1:7.6;camera.updateProjectionMatrix();if(renderer instanceof T.WebGLRenderer)renderer.setSize(el.clientWidth,el.clientHeight,false);else renderer.setSize(el.clientWidth,el.clientHeight);};size();const observer=new ResizeObserver(size);observer.observe(el);
+   let dirty=true;const size=()=>{dirty=true;if(!el.clientWidth||!el.clientHeight)return;camera.aspect=el.clientWidth/el.clientHeight;camera.position.z=live.current.presentation&&live.current.presentation!=='game'?6.4:camera.aspect<.85?8.1:7.6;camera.updateProjectionMatrix();if(renderer instanceof T.WebGLRenderer)renderer.setSize(el.clientWidth,el.clientHeight,false);else renderer.setSize(el.clientWidth,el.clientHeight);};size();const observer=new ResizeObserver(size);observer.observe(el);
    const reduced=matchMedia('(prefers-reduced-motion: reduce)');let phase='idle',phaseTime=0,time=0,last=0,frame=0,previousId='',previousStatus='',previousBoost=false,side=1,variant=0;let ready=false;
    const phaseTo=(p:string)=>{phase=p;phaseTime=0;el.dataset.phase=p;el.dataset.bagEmotion=['steal','caught','escape'].includes(p)?'fear':'happy';};
    const render=(now:number)=>{if(dead)return;frame=requestAnimationFrame(render);if(now-last<1000/(software?24:45))return;const dt=Math.min(.25,(now-last)/1000||.016);last=now;const p=live.current;
@@ -57,6 +57,13 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
      const pose=p.theft?theftFrame(performance.now()-p.theft.startedAt):null;
      m.bag.visible=!!pose?.showBag;
      if(pose){const shrink=pose.bagScale;m.bag.position.set(-.25*(1-shrink),.18*(1-shrink),0);m.bag.scale.set(shrink,shrink*(1-.15*(1-shrink)),shrink);m.bag.rotation.z=-.14*(1-shrink);}
+    }
+    const sad=p.presentation==='loss';m.sadMouth.visible=sad;m.sadBrows.visible=sad;m.brows.forEach(b=>b.visible=!sad);
+    if(sad){
+     // A separate result pose: no chase, fear mouth, victory jump or raised arms.
+     m.bag.visible=true;m.bag.position.set(0,reduced.matches?0:Math.sin(time*1.8)*.012,0);m.bag.scale.set(1,.97,1);
+     m.bag.rotation.set(.06,-.18,reduced.matches?-.025:-.025-Math.sin(Math.min(t,.7)/.7*Math.PI)*.045);
+     m.fear.visible=false;m.smile.visible=false;m.eyes.forEach(e=>e.scale.y=.55);m.bagArms.forEach((arm,i)=>arm.rotation.z=i===0?.15:-.15);el.dataset.bagEmotion='sad';
     }
     el.dataset.bagVisible=String(m.bag.visible);bagShadow.visible=m.bag.visible;squirrelShadow.visible=m.squirrel.visible;bagShadow.position.x=m.bag.position.x;bagShadow.position.z=m.bag.position.z;bagShadow.scale.set(m.bag.scale.x,1,m.bag.scale.z);squirrelShadow.position.x=m.squirrel.position.x;squirrelShadow.position.z=m.squirrel.position.z;
     if(el.dataset.products!==String(flying))el.dataset.products=String(flying);el.dataset.ground='stone';if(el.dataset.lean!==lean.current.toFixed(3))el.dataset.lean=lean.current.toFixed(3);

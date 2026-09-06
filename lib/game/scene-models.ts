@@ -27,6 +27,10 @@ export function buildCharacters(lowPower=false){
  for(const x of [-.28,.28]){const eye=new T.Group();eye.position.set(x*.77,1.65,.34);eye.scale.set(.66,.66,.66);ball(eye,white,0,0,0,.245,.29,.115);ball(eye,brown,.025,-.015,.105,.112,.135,.066);ball(eye,black,.028,-.015,.16,.056,.086,.025);ball(eye,white,.06,.048,.185,.028);body.add(eye);eyes.push(eye);}
  const brows=[line(body,redDark,[[-.52,2.01,.43],[-.3,2.1,.48],[-.08,2.04,.44]],.023),line(body,redDark,[[.08,2.04,.44],[.3,2.1,.48],[.52,2.01,.43]],.023)];
  const smile=ball(body,black,0,1.22,.42,.15,.047,.02),fear=ball(body,black,0,1.12,.42,.105,.155,.025);fear.visible=false;
+ const sadMouth=line(body,black,[[-.15,1.11,.44],[0,1.2,.46],[.15,1.11,.44]],.026);sadMouth.visible=false;
+ const sadBrows=new T.Group();body.add(sadBrows);sadBrows.visible=false;
+ line(sadBrows,redDark,[[-.5,2.01,.43],[-.29,2.07,.48],[-.08,2.18,.44]],.025);
+ line(sadBrows,redDark,[[.08,2.18,.44],[.29,2.07,.48],[.5,2.01,.43]],.025);
  const tooth=box(body,white,.17,.016,.012,0,1.24,.38,.005);
  const label=document.createElement('canvas');label.width=512;label.height=128;const ctx=label.getContext('2d')!;ctx.fillStyle='#ffffff';ctx.font='bold 80px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('Бристоль',256,65);const texture=new T.CanvasTexture(label);texture.colorSpace=T.SRGBColorSpace;
  const logo=new T.Mesh(new T.PlaneGeometry(1.25,.31),new T.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false}));logo.userData.label='Бристоль';logo.position.set(0,.8,.363);body.add(logo);
@@ -63,5 +67,5 @@ export function buildCharacters(lowPower=false){
   else{const bread=ball(item,mat(0xc39352,.9),0,0,0,.08,.2,.075);bread.rotation.z=.35;}
   products.push(item);
  }
- return {products,bag,body,eyes,brows,smile,fear,tooth,bagArms,bagFeet,squirrel,torso,head,tail,squirrelArms,squirrelFeet,texture};
+ return {products,bag,body,eyes,brows,smile,fear,sadMouth,sadBrows,tooth,bagArms,bagFeet,squirrel,torso,head,tail,squirrelArms,squirrelFeet,texture};
 }

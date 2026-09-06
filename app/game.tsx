@@ -94,11 +94,12 @@ export default function Game(){
    if(!res.ok){setError(data.error??'Не удалось выполнить действие.');return null;}
    const before=current.current;apply(data);
    if((cmd.action==='tap'||cmd.action==='taps')&&!data.attempt?.outcomes&&data.attempt&&data.attempt.status!==before?.attempt?.status){
-    if(data.attempt.status==='loss_pending'||data.attempt.status==='lost')sound('loss');
+    if(data.attempt.status==='loss_pending'||data.attempt.status==='lost')sound(data.attempt.status==='lost'?'loss':'caught');
     else if(data.attempt.status==='final_ready')sound('win');
    }
    if(cmd.action==='cashout'||cmd.action==='close'&&data.attempt?.status==='won')sound('win');
    if(cmd.action==='booster')sound('rescue');
+   if((cmd.action==='lose'||cmd.action==='close')&&data.attempt?.status==='lost'&&before?.attempt?.status==='loss_pending')sound('loss');
    if(cmd.action==='start')sound('start');
    return data;
   }catch(e){if(cmd.action==='heartbeat'){pendingCommand.current=null;setPending(false);}setError(connectionError(e));return null;}
@@ -124,6 +125,8 @@ export default function Game(){
  useEffect(()=>{const visible=()=>{audioEngine.current?.setHidden(document.visibilityState==='hidden');if(document.visibilityState==='hidden')tapQueue.current?.cancel();else if(!lock.current)void refresh();};const online=()=>{if(!pendingCommand.current&&!lock.current)void refresh();};document.addEventListener('visibilitychange',visible);window.addEventListener('online',online);return()=>{document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',online);};},[refresh]);
  const a=projectAttempt(state?.attempt,projectedTap),playing=!!a&&['active','loss_pending','final_ready'].includes(a.status),result=!!state&&!!a&&['won','lost','abandoned'].includes(a.status)&&!resultIsDismissed({...state,attempt:a},dismissed),onHome=!playing&&!result;
  const successResult=!!a&&(a.status==='final_ready'||(result&&a.status==='won'));
+ const lossResult=!!a&&result&&a.status==='lost';
+ const characterResult=successResult||lossResult;
  const heistActive=!!theftCue&&theftCue.attemptId===a?.id&&theftCue.tap===a.tap&&['loss_pending','lost'].includes(a.status);
  const blocked=busy||pending||loading||!sceneReady||decisionWaiting;
  async function start(kind=selectedMode){
@@ -163,7 +166,7 @@ export default function Game(){
    track?.animate([{filter:'brightness(1.65)',transform:'scaleY(1.18)'},{filter:'brightness(1)',transform:'scaleY(1)'}],{duration:after.tap%20===0?300:140,easing:'ease-out'});
    if(after.tap%20===0){const gift=scoreOrigin.current?.parentElement?.querySelector('.goal-gift');gift?.getAnimations().forEach(animation=>animation.cancel());gift?.animate([{transform:'scale(1)'},{transform:'scale(1.3)',offset:.35},{transform:'scale(1)'}],{duration:360,easing:'ease-out'});}
   }
-  audioEngine.current?.play(['loss_pending','lost'].includes(after.status)?'loss':after.status==='final_ready'?'win':'tap',after.tap);
+  audioEngine.current?.play(after.status==='lost'?'loss':after.status==='loss_pending'?'caught':after.status==='final_ready'?'win':'tap',after.tap);
  }
  function toggleSound(){const next=!muted;setMuted(next);audioEngine.current?.configure({muted:next,music,effects});if(!next)audioEngine.current?.unlock();try{localStorage.setItem('bristol-sound',next?'off':'on');}catch{}}
  function preference(kind:'music'|'effects'|'haptics',value:boolean){if(kind==='music')setMusic(value);if(kind==='effects')setEffects(value);if(kind==='haptics'){setHaptics(value);vibrateTap(value);}try{localStorage.setItem('bristol-'+kind,value?'on':'off');}catch{}}
@@ -178,7 +181,7 @@ export default function Game(){
  async function decide(action:'booster'|'lose'){if(decisionWaiting)return;setDecisionWaiting(true);try{await tapQueue.current?.flush();await commandDone.current;if(!pendingCommand.current)await send(action);}finally{setDecisionWaiting(false);}}
  const squirrelVariant=demoVariant??Array.from(a?.id??'').reduce((n,c)=>n+c.charCodeAt(0),0)%3;
  const preview={tap:a?.tap??0,reward:a?.reward??0,pending:false};
- useEffect(()=>{audioEngine.current?.setActive(playing);audioEngine.current?.setTension(a?.status==='loss_pending'?1:(a?.tap??0)/120);},[playing,a?.status,a?.tap]);
+ useEffect(()=>{audioEngine.current?.setActive(playing&&a?.status==='active');audioEngine.current?.setTension(a?.status==='loss_pending'?1:(a?.tap??0)/120);},[playing,a?.status,a?.tap]);
  const remaining=state?.freeDate?Math.max(0,new Date(state.freeDate+'T00:00:00Z').getTime()+86400000-clock):0;
  const resetTime=[Math.floor(remaining/3600000),Math.floor(remaining/60000)%60,Math.floor(remaining/1000)%60].map(n=>String(n).padStart(2,'0')).join(':');
  const showForced=!!a?.scenario&&playing;
@@ -201,7 +204,7 @@ export default function Game(){
      <Button variant="ghost" className="icon-button help" aria-label="Правила игры" onClick={()=>setModal('rules')}>?</Button>
     </div>
    </header>
-   {!successResult&&<Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} theft={heistActive?theftCue:null} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>}
+   {(!characterResult||heistActive)&&<Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} theft={heistActive?theftCue:null} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>}
    <OriginalSquirrel home={onHome} attemptId={a?.id} boosterUsed={a?.boosterUsed}/>
    <SquirrelTaunt attemptId={a?.id} tap={a?.tap??0} active={!onHome&&a?.status==='active'&&!modal&&!motionHidden}/>
 
@@ -256,19 +259,18 @@ export default function Game(){
   </Dialog>
 
   {a&&(result||a.status==='final_ready')&&<Dialog open={!modal&&!heistActive} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
-   <GameDecisionDialog ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${successResult?'success-result':''} ${a.status==='lost'?`squirrel-popup squirrel-path-${squirrelVariant}`:''}`} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
-    {a.status==='lost'&&<div className="squirrel-popup-art squirrel-already-here"><img src={A+'thief.png'} alt="Белка унесла пакет"/></div>}
-    <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Отличный улов!'):a?.status==='lost'?'Вот это белка…':'До новой игры!'}</DialogTitle>
+   <GameDecisionDialog ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${characterResult?'success-result':''} ${lossResult?'loss-result':''}`} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
+    <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Отличный улов!'):a?.status==='lost'?'Улов упущен…':'До новой игры!'}</DialogTitle>
     <DialogDescription className="sr-only">{a.status==='lost'?'Незабранные монеты потеряны':'Результат попытки'}</DialogDescription>
-    {successResult&&<>
+    {characterResult&&<>
      <div className="success-art">
-      <Scene3D presentation="reward" status={a.status} attemptId={a.id} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>
+      <Scene3D presentation={lossResult?'loss':'reward'} status={a.status} attemptId={a.id} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>
      </div>
-     <div className="success-reward" ref={rewardOrigin}>
-      <strong>+{fmt(a.reward)} <Coin size={46}/></strong>
-      <span>{a.status==='won'?'Монеты в кошельке':'Твоя награда'}</span>
+     <div className="success-reward" ref={successResult?rewardOrigin:undefined}>
+      <strong>{lossResult?'0':'+'+fmt(a.reward)} <Coin size={46}/></strong>
+      <span>{lossResult?'В этот раз без монет':a.status==='won'?'Монеты в кошельке':'Твоя награда'}</span>
      </div>
-     {a.tap===120&&<div className="success-gift"><img src={A+'gift.png'} alt=""/> +1 подарок</div>}
+     {successResult&&a.tap===120&&<div className="success-gift"><img src={A+'gift.png'} alt=""/> +1 подарок</div>}
     </>}
 
     {a?.status==='final_ready'?<Action onClick={cashout} disabled={cashoutWaiting||(pending&&!busy)}>ЗАБРАТЬ НАГРАДУ</Action>:<><Action onClick={dismissResult}>ПРОДОЛЖИТЬ</Action>{a?.coupon&&<Action secondary onClick={()=>setModal('gifts')}>МОЙ ПОДАРОК</Action>}</>}

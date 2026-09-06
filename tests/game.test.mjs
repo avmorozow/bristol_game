@@ -210,7 +210,7 @@ test('haptics uses one short pulse and tolerates disabled, unsupported or reject
 });
 function audioHarness(){
  const oscillators=[],gains=[];const param=()=>({value:0,changes:[],setValueAtTime(v){this.changes.push(v);},setTargetAtTime(v){this.changes.push(v);},exponentialRampToValueAtTime(v){this.changes.push(v);}});
- const ctx={state:'suspended',currentTime:0,destination:{},createGain(){const n={gain:param(),connect(){},disconnect(){}};gains.push(n);return n;},createOscillator(){const o={frequency:param(),connect(){},disconnect(){},start(time){this.startedAt=time;},stop(){this.onended?.();}};oscillators.push(o);return o;},async resume(){this.state='running';},async close(){this.state='closed';}};
+ const ctx={state:'suspended',currentTime:0,destination:{},createGain(){const n={gain:param(),connect(){},disconnect(){}};gains.push(n);return n;},createOscillator(){const o={frequency:param(),connect(){},disconnect(){},start(time){this.startedAt=time;},stop(time){this.stoppedAt=time;this.onended?.();}};oscillators.push(o);return o;},async resume(){this.state='running';},async close(){this.state='closed';}};
  const audio=new GameAudio(()=>ctx);return {audio,ctx,oscillators,gains};
 }
 test('music starts after interaction, pauses when hidden or muted, and effects obey preferences',async()=>{
@@ -322,4 +322,20 @@ test('theft keeps the original bag during approach and never shows two bags at t
   if(ms>=THEFT.swap){assert.equal(pose.showBag,false);assert.equal(pose.showCarriedBag,true);}
  }
  assert.equal(theftFrame(THEFT.finish).phase,'done');assert.equal(theftFrame(620).phase,'grab');assert.ok(theftFrame(620).bagScale<1);
+});
+
+
+test('loss sting starts immediately with three descending beats and a long final note, respecting effect settings',async()=>{
+ const h=audioHarness();try{
+  h.audio.configure({muted:false,music:false,effects:true});h.audio.unlock();await nextTurn();h.ctx.currentTime=10;
+  h.audio.play('loss');
+  const voices=h.oscillators,beats=voices.filter(o=>o.type==='triangle');
+  assert.equal(beats.length,3);assert.equal(new Set(voices.map(o=>o.startedAt)).size,3);
+  assert.equal(beats[0].startedAt,10);
+  for(let i=1;i<beats.length;i++)assert.ok(beats[i].frequency.changes[0]<beats[i-1].frequency.changes[0]);
+  assert.ok(beats[2].stoppedAt-beats[2].startedAt>3*(beats[0].stoppedAt-beats[0].startedAt));
+  h.audio.configure({muted:false,music:false,effects:false});const n=voices.length;h.audio.play('loss');assert.equal(voices.length,n);
+  h.audio.configure({muted:true,music:false,effects:true});h.audio.play('loss');assert.equal(voices.length,n);
+  h.audio.configure({muted:false,music:false,effects:true});h.audio.setHidden(true);h.audio.play('loss');assert.equal(voices.length,n);
+ }finally{h.audio.dispose();}
 });

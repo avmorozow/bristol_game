@@ -157,3 +157,11 @@ body:has(.success-result[data-state=open]) [data-slot=dialog-overlay]{background
  .success-result .success-reward,.success-result .success-gift,.success-result .game-button{grid-column:2}
  .success-result .field-error{grid-column:1/-1}
 }
+
+/* The loss result shares the reward layout, with a quiet, visibly sad pose. */
+.game-decision-positioner>.game-modal.scene-decision.loss-result{background:#f6f0ed;border-color:#e6d9d3}
+.loss-result .success-art{background:radial-gradient(ellipse at 50% 52%,#cbbbc670,transparent 65%)}
+.loss-result [data-slot=dialog-title]{color:#66434a}
+.loss-result .success-reward strong{color:#826f71}
+.loss-result .success-reward .coin{filter:saturate(.3);opacity:.7}
+.loss-result .success-reward>span{color:#886f74}
