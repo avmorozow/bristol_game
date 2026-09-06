@@ -122,3 +122,13 @@ body:has(.squirrel-popup[data-state=open]){overflow-x:clip}
 
 /* Immediate physical-tap feedback on the path to the gift. */
 .goal-track{position:relative;transform-origin:center;isolation:isolate}.goal-track .game-progress{height:10px;border-radius:8px;overflow:hidden;background:#23091499;box-shadow:inset 0 1px 3px #0005,0 0 0 1px #ffffff25}.goal-track [data-slot=progress-indicator]{background:linear-gradient(90deg,#e99726,#ffe494);transition:none;box-shadow:0 0 9px #ffd97880}.goal-checkpoints{position:absolute;inset:0;pointer-events:none}.goal-checkpoints i{position:absolute;top:2px;height:6px;width:2px;background:#ffffff55;transform:translateX(-50%);border-radius:2px}.goal-checkpoints i.reached{background:#fff8d7;box-shadow:0 0 6px #fff0ab}.progress-info b{font-size:16px;font-variant-numeric:tabular-nums;color:#fff1b2}.goal-gift img{width:28px;height:28px}.goal-near{filter:drop-shadow(0 0 7px #ffdb79)}.has-scene-decision .goal-track{visibility:hidden}
+
+/* Keep the current bag in place until the physical grab; then reveal the carried sprite. */
+.heist-playing .score-zone,.heist-playing .game-bottom,.heist-playing .game-whisper,.heist-playing .demo-label{visibility:hidden}
+.squirrel-heist{position:absolute;left:5%;bottom:2%;width:90%;aspect-ratio:1;z-index:5;pointer-events:none;will-change:transform}
+.squirrel-heist img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;animation:none!important}
+.squirrel-heist .heist-carry{visibility:hidden}.squirrel-heist[data-phase=carry] .heist-empty,.squirrel-heist[data-phase=done] .heist-empty{visibility:hidden}.squirrel-heist[data-phase=carry] .heist-carry,.squirrel-heist[data-phase=done] .heist-carry{visibility:visible;animation:heist-catch .18s ease-out both!important}
+@keyframes heist-catch{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+.preload-squirrel{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tap-loot{position:absolute;inset:0;z-index:4;pointer-events:none}.loot-item{position:absolute;left:50%;top:31%;width:25px;height:25px;display:flex;align-items:center;justify-content:center;font-size:23px;line-height:1;opacity:0;will-change:transform,opacity;filter:drop-shadow(0 2px 2px #37131645)}.loot-item img{width:100%;height:100%;object-fit:contain}.loot-coin{width:24px;height:24px}
+@media(prefers-reduced-motion:reduce){.tap-loot,.squirrel-heist{display:none}}

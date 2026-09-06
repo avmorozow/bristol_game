@@ -1,11 +1,15 @@
 'use client';
 import {forwardRef,useEffect,useImperativeHandle,useRef,useState} from 'react';
 import type {Status} from '@/lib/game/engine';
+import {TapLoot,type TapLootHandle} from '@/components/tap-loot';
+import {SquirrelHeist,type TheftCue} from '@/components/squirrel-heist';
+import {theftFrame} from '@/lib/game/theft-timeline';
 export type SceneHandle={tap:()=>void};
-type Props={status:Status|'home';attemptId?:string;boosterUsed?:boolean;variant?:number;paused:boolean;onReady:(ready:boolean)=>void};
+type Props={status:Status|'home';attemptId?:string;boosterUsed?:boolean;variant?:number;theft?:TheftCue|null;onTheftDone:()=>void;paused:boolean;onReady:(ready:boolean)=>void};
 export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
+ const loot=useRef<TapLootHandle|null>(null);
  const host=useRef<HTMLDivElement>(null),live=useRef(props),impulse=useRef(0),tapSerial=useRef(0),lean=useRef(0),[failed,setFailed]=useState(false);live.current=props;
- useImperativeHandle(ref,()=>({tap:()=>{impulse.current=1;tapSerial.current++;if(tapSerial.current%3===0)lean.current=tapSerial.current%2?.075:-.075;}}),[]);
+ useImperativeHandle(ref,()=>({tap:()=>{loot.current?.burst();impulse.current=1;tapSerial.current++;if(tapSerial.current%3===0)lean.current=tapSerial.current%2?.075:-.075;}}),[]);
  useEffect(()=>{
   let dead=false,cleanup=()=>{};
   void (async()=>{try{
@@ -48,9 +52,15 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
     // Fixed pool: latest taps trigger short product arcs, never a delayed queue.
     if(lastTapSerial!==tapSerial.current){lastTapSerial=tapSerial.current;if(p.status==='active'&&!reduced.matches)for(let j=0;j<2;j++){const i=productCursor++%m.products.length;flights[i]={age:0,side:(i%2?1:-1)};}}
     let flying=0;flights.forEach((f,i)=>{f.age+=dt;const item=m.products[i],wasVisible=item.visible;item.visible=p.status==='active'&&!reduced.matches&&f.age<.68;if(wasVisible!==item.visible)dirty=true;if(!item.visible)return;flying++;const u=f.age/.68;item.position.set(f.side*(.12+.72*u),2.48+Math.sin(u*Math.PI)*.62-u*.22,.35+u*.36);item.rotation.set(u*5,f.side*u*7,u*3);item.scale.setScalar((1-Math.max(0,(u-.7)/.3))*.85);});
-    m.squirrel.visible=false;if(['loss_pending','lost'].includes(p.status))m.bag.visible=false;bagShadow.visible=m.bag.visible;squirrelShadow.visible=m.squirrel.visible;bagShadow.position.x=m.bag.position.x;bagShadow.position.z=m.bag.position.z;bagShadow.scale.set(m.bag.scale.x,1,m.bag.scale.z);squirrelShadow.position.x=m.squirrel.position.x;squirrelShadow.position.z=m.squirrel.position.z;
+    m.squirrel.visible=false;
+    if(['loss_pending','lost'].includes(p.status)){
+     const pose=p.theft?theftFrame(performance.now()-p.theft.startedAt):null;
+     m.bag.visible=!!pose?.showBag;
+     if(pose){const shrink=pose.bagScale;m.bag.position.set(-.25*(1-shrink),.18*(1-shrink),0);m.bag.scale.set(shrink,shrink*(1-.15*(1-shrink)),shrink);m.bag.rotation.z=-.14*(1-shrink);}
+    }
+    el.dataset.bagVisible=String(m.bag.visible);bagShadow.visible=m.bag.visible;squirrelShadow.visible=m.squirrel.visible;bagShadow.position.x=m.bag.position.x;bagShadow.position.z=m.bag.position.z;bagShadow.scale.set(m.bag.scale.x,1,m.bag.scale.z);squirrelShadow.position.x=m.squirrel.position.x;squirrelShadow.position.z=m.squirrel.position.z;
     if(el.dataset.products!==String(flying))el.dataset.products=String(flying);el.dataset.ground='stone';if(el.dataset.lean!==lean.current.toFixed(3))el.dataset.lean=lean.current.toFixed(3);
-    if(!dirty&&ready&&!flying&&((software&&['idle','caught'].includes(phase)&&phaseTime>.5&&impulse.current<.01&&Math.abs(lean.current)<.003)||(phase==='escape'&&t>1.2)||(software&&phase==='win'&&t>1.5)))return;
+    if(!p.theft&&!dirty&&ready&&!flying&&((software&&['idle','caught'].includes(phase)&&phaseTime>.5&&impulse.current<.01&&Math.abs(lean.current)<.003)||(phase==='escape'&&t>1.2)||(software&&phase==='win'&&t>1.5)))return;
     renderer.render(scene,camera);dirty=false;if(!ready){ready=true;el.dataset.renderer=software?'software-3d':'webgl';p.onReady(true);}
    };
    const lost=(e:Event)=>{e.preventDefault();setFailed(true);live.current.onReady(true);};renderer.domElement.addEventListener('webglcontextlost',lost);if(renderer instanceof T.WebGLRenderer)renderer.compile(scene,camera);frame=requestAnimationFrame(render);
@@ -58,5 +68,5 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
   }catch{if(!dead){setFailed(true);live.current.onReady(true);}}})();
   return()=>{dead=true;cleanup();};
  },[]);
- return <div ref={host} className="scene-3d" aria-hidden="true" data-testid="scene-3d">{failed&&<div className={`scene-fallback fallback-${props.status}`}><img src="/assets/bag-3d.webp" alt=""/>{['loss_pending','lost'].includes(props.status)&&<img src="/assets/thief.png" alt=""/>}</div>}</div>;
+ return <div ref={host} className="scene-3d" aria-hidden="true" data-testid="scene-3d"><TapLoot ref={loot} active={props.status==='active'&&!props.paused}/>{props.theft&&<SquirrelHeist cue={props.theft} variant={props.variant??0} onDone={props.onTheftDone}/>}<img className="preload-squirrel" src="/assets/squirrel-empty.webp" alt=""/>{failed&&<div className={`scene-fallback fallback-${props.status}`}><img src="/assets/bag-3d.webp" alt=""/>{['loss_pending','lost'].includes(props.status)&&<img src="/assets/thief.png" alt=""/>}</div>}</div>;
 });

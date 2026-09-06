@@ -9,6 +9,7 @@ import {Progress} from '@/components/ui/progress';
 import {Toaster,toast} from 'sonner';
 import {TapQueue} from '@/lib/game/tap-queue';
 import {OriginalSquirrel} from '@/components/original-squirrel';
+import type {TheftCue} from '@/components/squirrel-heist';
 import {SquirrelTaunt} from '@/components/squirrel-taunt';
 import {Scene3D} from '@/components/scene-3d';
 import type {SceneHandle} from '@/components/scene-3d';
@@ -57,6 +58,8 @@ export default function Game(){
  const [particles,setParticles]=useState<{id:number;amount:number;left:number}[]>([]),[historyCount,setHistoryCount]=useState(20),[pending,setPending]=useState(false);
  const [motionHidden,setMotionHidden]=useState(false),[sceneReady,setSceneReady]=useState(false),[decisionWaiting,setDecisionWaiting]=useState(false),[demoVariant,setDemoVariant]=useState<number|null>(null);
  const sceneControl=useRef<SceneHandle|null>(null);
+ const [theftCue,setTheftCue]=useState<TheftCue|null>(null);
+ const finishTheft=useCallback(()=>setTheftCue(null),[]);
  useEffect(()=>{const update=()=>setMotionHidden(document.hidden);update();document.addEventListener('visibilitychange',update);return()=>document.removeEventListener('visibilitychange',update);},[]);
  const commandDone=useRef<Promise<void>>(Promise.resolve());
  const [dismissed,setDismissed]=useState<ResultDismissal|null>(null),[credit,setCredit]=useState<WalletCredit|null>(null);
@@ -120,6 +123,7 @@ export default function Game(){
  useEffect(()=>{const timer=setInterval(()=>{if(document.visibilityState==='visible'&&live(current.current)&&!lock.current&&!pendingCommand.current&&!tapBacklog&&!cashoutLock.current)void send('heartbeat');},5000);return()=>clearInterval(timer);},[send,tapBacklog]);
  useEffect(()=>{const visible=()=>{audioEngine.current?.setHidden(document.visibilityState==='hidden');if(document.visibilityState==='hidden')tapQueue.current?.cancel();else if(!lock.current)void refresh();};const online=()=>{if(!pendingCommand.current&&!lock.current)void refresh();};document.addEventListener('visibilitychange',visible);window.addEventListener('online',online);return()=>{document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',online);};},[refresh]);
  const a=projectAttempt(state?.attempt,projectedTap),playing=!!a&&['active','loss_pending','final_ready'].includes(a.status),result=!!state&&!!a&&['won','lost','abandoned'].includes(a.status)&&!resultIsDismissed({...state,attempt:a},dismissed),onHome=!playing&&!result;
+ const heistActive=!!theftCue&&theftCue.attemptId===a?.id&&theftCue.tap===a.tap&&['loss_pending','lost'].includes(a.status);
  const blocked=busy||pending||loading||!sceneReady||decisionWaiting;
  async function start(kind=selectedMode){
   const ready=current.current??await refresh();if(!ready)return;
@@ -143,6 +147,7 @@ export default function Game(){
   const position=current.current?.attempt,queue=tapQueue.current;if(!position||!queue)return;
   const before=projectAttempt(position,queue.preview().tap)!;if(!queue.add())return;
   const after=projectAttempt(position,queue.preview().tap)!,id=++particleId.current;sceneControl.current?.tap();
+  if(['loss_pending','lost'].includes(after.status)&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)setTheftCue({attemptId:after.id,tap:after.tap,startedAt:performance.now()});
   if(after.status==='active'||after.status==='final_ready')setParticles(p=>[...p.slice(-7),{id,amount:after.reward-before.reward,left:24+(id*19)%52}]);else setParticles([]);
   setTimeout(()=>setParticles(p=>p.filter(x=>x.id!==id)),750);
   vibrateTap(haptics);
@@ -181,7 +186,7 @@ export default function Game(){
  return <main className="game-shell" onPointerDownCapture={()=>audioEngine.current?.unlock()} onKeyDownCapture={()=>audioEngine.current?.unlock()}>
   <Toaster position="top-center" richColors/>
   {credit&&state&&<WalletCelebration key={credit.id} credit={credit} balance={state.balance} wallet={walletElement} origin={rewardOrigin} fallback={scoreOrigin} onComplete={finishCredit}/>}
-  <section className={`game-stage stage-3d ${onHome?'home-scene':'play-scene'} ${a?.status==='loss_pending'||result||a?.status==='final_ready'?'has-scene-decision':''}`} aria-label="Игра Собери пакет" data-motion-paused={motionHidden||!!modal}>
+  <section className={`game-stage stage-3d ${onHome?'home-scene':'play-scene'} ${heistActive?'heist-playing':a?.status==='loss_pending'||result||a?.status==='final_ready'?'has-scene-decision':''}`} aria-label="Игра Собери пакет" data-motion-paused={motionHidden||!!modal}>
    <img className="scene-bg" src={A+'background.png'} alt="" fetchPriority="high"/>
    <div className="scene-shade"/>
    <header className="topbar">
@@ -195,7 +200,7 @@ export default function Game(){
      <Button variant="ghost" className="icon-button help" aria-label="Правила игры" onClick={()=>setModal('rules')}>?</Button>
     </div>
    </header>
-   <Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} paused={motionHidden||!!modal} onReady={setSceneReady}/>
+   <Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} theft={heistActive?theftCue:null} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>
    <OriginalSquirrel home={onHome} attemptId={a?.id} boosterUsed={a?.boosterUsed}/>
    <SquirrelTaunt attemptId={a?.id} tap={a?.tap??0} active={!onHome&&a?.status==='active'&&!modal&&!motionHidden}/>
 
@@ -239,9 +244,9 @@ export default function Game(){
    <button className="demo-label" onClick={()=>setModal('demo')}>Демо · монеты</button>
   </section>
 
-  <Dialog open={a?.status==='loss_pending'&&!modal} onOpenChange={()=>{}}>
+  <Dialog open={a?.status==='loss_pending'&&!modal&&!heistActive} onOpenChange={()=>{}}>
    <GameDecisionDialog ref={lossFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();lossFocus.current?.focus();}} className={`game-modal scene-decision squirrel-popup squirrel-path-${squirrelVariant}`} onEscapeKeyDown={e=>e.preventDefault()} onPointerDownOutside={e=>e.preventDefault()}>
-    <div className="squirrel-popup-art"><img src={A+'thief.png'} alt="Белка забрала пакет"/></div>
+    <div className="squirrel-popup-art squirrel-already-here"><img src={A+'thief.png'} alt="Белка забрала пакет"/></div>
     <div className="modal-body"><DialogTitle>Вернуть пакет?</DialogTitle><DialogDescription className="sr-only">Одно спасение за попытку</DialogDescription>
     <Action onClick={()=>void decide('booster')} disabled={decisionWaiting||(pending&&!busy)||(state?.balance??0)<50}>ОТОГНАТЬ ЗА 50 <Coin/></Action>
     {(state?.balance??0)<50&&<p className="field-error">Не хватает монет для спасения</p>}
@@ -249,9 +254,9 @@ export default function Game(){
    </GameDecisionDialog>
   </Dialog>
 
-  {a&&(result||a.status==='final_ready')&&<Dialog open={!modal} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
+  {a&&(result||a.status==='final_ready')&&<Dialog open={!modal&&!heistActive} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
    <GameDecisionDialog ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${a.status==='lost'?`squirrel-popup squirrel-path-${squirrelVariant}`:''}`} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
-    {a.status==='lost'&&<div className={`squirrel-popup-art ${a.boosterUsed?'':'squirrel-already-here'}`}><img src={A+'thief.png'} alt="Белка унесла пакет"/></div>}
+    {a.status==='lost'&&<div className="squirrel-popup-art squirrel-already-here"><img src={A+'thief.png'} alt="Белка унесла пакет"/></div>}
     <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Монеты забраны!'):a?.status==='lost'?'Вот это белка…':'До новой игры!'}</DialogTitle>
     <DialogDescription className="sr-only">{a.status==='lost'?'Незабранные монеты потеряны':'Результат попытки'}</DialogDescription>
     {['won','final_ready'].includes(a?.status??'')&&<div className="reward-card" ref={rewardOrigin}><div><span>Монеты</span><strong>+ {fmt(a?.reward??0)} <Coin/></strong></div>{a?.tap===120&&<div><span>Подарок</span><strong>+ 1 <img className="gift-icon" src={A+'gift.png'} alt="подарок"/></strong></div>}</div>}
@@ -264,7 +269,7 @@ export default function Game(){
   {modal&&<Dialog open={true} onOpenChange={open=>{if(!open&&modal==='tutorial')void nextTutorial(true);else if(!open)setModal(null);}}>
    <DialogContent className={`game-modal ${modal==='referral'?'illustration-modal':modal==='rules'||modal==='history'?'reading-modal':''} ${modal==='tutorial'?'tutorial-modal':''}`} showCloseButton={false}>
     {modal!=='tutorial'&&<Button variant="ghost" className="modal-close" onClick={()=>setModal(null)} aria-label="Закрыть"><X size={22}/></Button>}
-    {modal==='settings'&&<><div className="modal-kicker">АТМОСФЕРА ИГРЫ</div><DialogTitle>Звук и отклик</DialogTitle><DialogDescription>Настрой игру под себя. Музыка звучит во время активной попытки.</DialogDescription><div className="feedback-settings"><button aria-pressed={!muted} onClick={toggleSound}><Volume2/><span><strong>Общий звук</strong><small>{muted?'Выключен':'Включён'}</small></span><b>{muted?'Выкл':'Вкл'}</b></button><button aria-pressed={music} onClick={()=>preference('music',!music)}><Music2/><span><strong>Фоновая музыка</strong><small>Игривый свинг и лесная погоня</small></span><b>{music?'Вкл':'Выкл'}</b></button><button aria-pressed={effects} onClick={()=>preference('effects',!effects)}><Volume2/><span><strong>Звуковые эффекты</strong><small>Тап, спасение, белка и победа</small></span><b>{effects?'Вкл':'Выкл'}</b></button><button aria-pressed={haptics&&hapticSupport} disabled={!hapticSupport} onClick={()=>preference('haptics',!haptics)}><Smartphone/><span><strong>Вибрация при тапе</strong><small>{hapticSupport?'Короткий отклик телефона':'Этот браузер не поддерживает вибрацию'}</small></span><b>{hapticSupport?(haptics?'Вкл':'Выкл'):'—'}</b></button></div>{muted&&<p className="small-note">Включи общий звук, чтобы услышать музыку и эффекты.</p>}<Action onClick={()=>setModal(null)}>ГОТОВО</Action></>}
+    {modal==='settings'&&<><div className="modal-kicker">АТМОСФЕРА ИГРЫ</div><DialogTitle>Звук и отклик</DialogTitle><DialogDescription>Настрой игру под себя. Музыка звучит во время активной попытки.</DialogDescription><div className="feedback-settings"><button aria-pressed={!muted} onClick={toggleSound}><Volume2/><span><strong>Общий звук</strong><small>{muted?'Выключен':'Включён'}</small></span><b>{muted?'Выкл':'Вкл'}</b></button><button aria-pressed={music} onClick={()=>preference('music',!music)}><Music2/><span><strong>Фоновая музыка</strong><small>Бит и мелодия нарастают к финалу</small></span><b>{music?'Вкл':'Выкл'}</b></button><button aria-pressed={effects} onClick={()=>preference('effects',!effects)}><Volume2/><span><strong>Звуковые эффекты</strong><small>Тап, спасение, белка и победа</small></span><b>{effects?'Вкл':'Выкл'}</b></button><button aria-pressed={haptics&&hapticSupport} disabled={!hapticSupport} onClick={()=>preference('haptics',!haptics)}><Smartphone/><span><strong>Вибрация при тапе</strong><small>{hapticSupport?'Короткий отклик телефона':'Этот браузер не поддерживает вибрацию'}</small></span><b>{hapticSupport?(haptics?'Вкл':'Выкл'):'—'}</b></button></div>{muted&&<p className="small-note">Включи общий звук, чтобы услышать музыку и эффекты.</p>}<Action onClick={()=>setModal(null)}>ГОТОВО</Action></>}
     {modal==='exit'&&<><DialogTitle>Закончить игру?</DialogTitle><DialogDescription>{a?.status==='loss_pending'?'Если уйти сейчас, белка заберёт незабранный выигрыш.':'Зачислим последний подтверждённый выигрыш. Чтобы сделать паузу до 5 минут, можно просто переключить вкладку.'}</DialogDescription><Action disabled={blocked} onClick={async()=>{const s=await send('close',a?.id);if(s)setModal(null);}}>{a?.status==='loss_pending'||!a?.tap?'ЗАКОНЧИТЬ БЕЗ НАГРАДЫ':'ЗАБРАТЬ И ВЫЙТИ'}</Action><Action secondary onClick={()=>setModal(null)}>ПРОДОЛЖИТЬ</Action></>}
     {modal==='tutorial'&&<><div className="tutorial-top"><span>КАК ИГРАТЬ</span><button onClick={()=>void nextTutorial(true)} disabled={blocked}>Пропустить</button></div><div className="tutorial-art" key={step}><img src={A+tutorial[step].image} alt=""/></div><div className="step-dots">{tutorial.map((_,i)=><span key={i} className={i===step?'selected':''}/>)}</div><DialogTitle>{tutorial[step].title}</DialogTitle><DialogDescription>{tutorial[step].text}</DialogDescription><Action onClick={()=>void nextTutorial()} disabled={blocked}>{step===3?(playing?'ПРОДОЛЖИТЬ ИГРУ':'НАЧАТЬ ИГРУ'):'ДАЛЬШЕ'}<ChevronRight size={20}/></Action>{step>0&&<button className="text-button" onClick={()=>setStep(step-1)}>Назад</button>}</>}
     {modal==='referral'&&<><img className="modal-art" src={A+'friends.png'} alt="Два пакета Бристоль"/><div className="modal-body"><DialogTitle>Играй с друзьями</DialogTitle><DialogDescription><strong>+ 100 монет</strong> тебе и другу<br/>за код приглашения</DialogDescription>{!state?.invitedBy&&state?.started===0?<><label className="sr-only" htmlFor="friend-code">Код друга</label><input id="friend-code" className="code-input" placeholder="ВВЕДИ КОД ДРУГА" value={refCode} maxLength={20} autoComplete="off" autoCapitalize="characters" onKeyDown={e=>{if(e.key==='Enter'&&!blocked&&refCode.trim().length>=4)void activate();}} onChange={e=>setRefCode(e.target.value.toUpperCase())}/><Action disabled={blocked||refCode.trim().length<4} onClick={activate}>ПРИМЕНИТЬ</Action><p className="demo-code">Для проверки используй код <button onClick={()=>setRefCode('BRISTOL')}>BRISTOL</button></p></>:<p className="ref-status">{state?.invitedBy?<><Check size={18}/> Код друга уже активирован</>:'Код друга можно ввести до первой игры'}</p>}{refMessage&&<p className="success-message">{refMessage}</p>}<div className="own-code"><span>Твой код</span><strong>{state?.referralCode??'…'}</strong></div><Action secondary onClick={copy} disabled={!state}><Copy size={21}/>СКОПИРОВАТЬ СВОЙ</Action>{error&&<p className="field-error">{error}</p>}</div></>}

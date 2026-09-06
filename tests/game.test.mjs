@@ -9,7 +9,7 @@ import {pathToFileURL} from 'node:url';
 
 const root=new URL('../',import.meta.url).pathname;
 const temp=await mkdtemp(join(tmpdir(),'bristol-tests-'));
-await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts'),join(root,'lib/game/result-view.ts'),join(root,'lib/game/tap-plan.ts'),join(root,'lib/game/squirrel-taunts.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
+await build({entryPoints:[join(root,'lib/game/engine.ts'),join(root,'app/api/game/route.ts'),join(root,'lib/game/tap-queue.ts'),join(root,'lib/game/feedback.ts'),join(root,'lib/game/audio.ts'),join(root,'lib/game/result-view.ts'),join(root,'lib/game/tap-plan.ts'),join(root,'lib/game/squirrel-taunts.ts'),join(root,'lib/game/theft-timeline.ts')],outdir:temp,bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-d1',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'cloudflare:workers',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__TEST_ENV;',loader:'js'}));}}]});
 const env={DB:null};globalThis.__TEST_ENV=env;
 const engine=await import(pathToFileURL(join(temp,'lib/game/engine.mjs')));
 const api=await import(pathToFileURL(join(temp,'app/api/game/route.mjs')));
@@ -312,4 +312,14 @@ test('one attempt never gets more than four taunts, including a restored checkpo
  for(const [i,tap] of [2,12,35,75].entries()){const next=taunts.nextTaunt(memory,tap,1000+i*10000);assert.ok(next);texts.push(next.text);memory=JSON.parse(JSON.stringify(next.memory));}
  assert.equal(new Set(texts).size,4);assert.equal(memory.count,4);
  assert.equal(taunts.nextTaunt(memory,120,999999),null);
+});
+
+const {THEFT,theftFrame}=await import(pathToFileURL(join(temp,'lib/game/theft-timeline.mjs')));
+test('theft keeps the original bag during approach and never shows two bags at the swap',()=>{
+ for(let ms=0;ms<1600;ms++){
+  const pose=theftFrame(ms);assert.ok(!(pose.showBag&&pose.showCarriedBag));
+  if(ms<THEFT.grab){assert.equal(pose.showBag,true);assert.equal(pose.bagScale,1);assert.equal(pose.phase,'approach');}
+  if(ms>=THEFT.swap){assert.equal(pose.showBag,false);assert.equal(pose.showCarriedBag,true);}
+ }
+ assert.equal(theftFrame(THEFT.finish).phase,'done');assert.equal(theftFrame(620).phase,'grab');assert.ok(theftFrame(620).bagScale<1);
 });
