@@ -8,7 +8,6 @@ import {GameDecisionDialog} from '@/components/game-decision-dialog';
 import {Progress} from '@/components/ui/progress';
 import {Toaster,toast} from 'sonner';
 import {TapQueue} from '@/lib/game/tap-queue';
-import {OriginalSquirrel} from '@/components/original-squirrel';
 import type {TheftCue} from '@/components/squirrel-heist';
 import {SquirrelTaunt} from '@/components/squirrel-taunt';
 import {Scene3D} from '@/components/scene-3d';
@@ -205,7 +204,6 @@ export default function Game(){
     </div>
    </header>
    {(!characterResult||heistActive)&&<Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} theft={heistActive?theftCue:null} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>}
-   <OriginalSquirrel home={onHome} attemptId={a?.id} boosterUsed={a?.boosterUsed}/>
    <SquirrelTaunt attemptId={a?.id} tap={a?.tap??0} active={!onHome&&a?.status==='active'&&!modal&&!motionHidden}/>
 
    {onHome&&<div className="home-content">

@@ -103,11 +103,11 @@ body:has(.scene-decision[data-state=open]) [data-slot=dialog-overlay]{background
 .squirrel-popup .modal-body{max-height:calc(100dvh - var(--squirrel-art-height) - 40px);overflow-y:auto;padding:20px 18px;gap:10px}.squirrel-popup [data-slot=dialog-title]{font-size:24px}
 body:has(.squirrel-popup[data-state=open]) [data-slot=dialog-overlay]{background:#1b080e55;backdrop-filter:none}
 .taunt-leaving{animation:taunt-out .28s ease-in forwards}.original-avatar{position:relative}.original-avatar img{position:absolute;width:88px;height:88px;max-width:none;left:-34px;top:-15px;object-fit:contain}
-.original-squirrel-scene{position:absolute;right:4%;bottom:calc(218px + 12%);width:37%;height:32%;z-index:2;pointer-events:none}.original-squirrel-crop{position:absolute;inset:0;overflow:hidden}.original-squirrel-crop img{position:absolute;bottom:0;left:-75%;width:175%;height:auto;max-width:none}.original-squirrel-retreat{animation:original-squirrel-leave .7s ease-in both}
+.original-squirrel-scene{position:absolute;inset:12px 5% 2%;z-index:5;pointer-events:none}.original-squirrel-scene>img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom}.original-squirrel-retreat{animation:original-squirrel-leave .7s ease-in both}
 @keyframes original-squirrel-enter{from{opacity:0;transform:translateX(100vw) rotate(5deg)}20%{opacity:1}to{opacity:1;transform:translateX(0) rotate(0)}}
 @keyframes original-squirrel-leave{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(100vw)}}
 @keyframes taunt-out{from{opacity:1;transform:translateX(0) scale(1)}to{opacity:0;transform:translateX(12px) scale(.97)}}
-@media(max-height:640px){.game-modal.scene-decision.squirrel-popup{--squirrel-art-height:27dvh}.squirrel-popup .modal-body{padding:16px;gap:8px}.squirrel-popup [data-slot=dialog-title]{font-size:22px}.original-squirrel-scene{bottom:calc(211px + 6%);height:37%}}
+@media(max-height:640px){.game-modal.scene-decision.squirrel-popup{--squirrel-art-height:27dvh}.squirrel-popup .modal-body{padding:16px;gap:8px}.squirrel-popup [data-slot=dialog-title]{font-size:22px}}
 @media(prefers-reduced-motion:reduce){.squirrel-popup-art img,.original-squirrel-retreat{animation:none}.taunt-leaving{animation:taunt-fade .12s linear forwards}}
 @keyframes taunt-fade{to{opacity:0}}
 body:has(.squirrel-popup[data-state=open]){overflow-x:clip}
@@ -125,8 +125,8 @@ body:has(.squirrel-popup[data-state=open]){overflow-x:clip}
 
 /* Keep the current bag in place until the physical grab; then reveal the carried sprite. */
 .heist-playing .score-zone,.heist-playing .game-bottom,.heist-playing .game-whisper,.heist-playing .demo-label{visibility:hidden}
-.squirrel-heist{position:absolute;left:5%;bottom:2%;width:90%;aspect-ratio:1;z-index:5;pointer-events:none;will-change:transform}
-.squirrel-heist img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;animation:none!important}
+.squirrel-heist{position:absolute;inset:12px 5% 2%;z-index:5;pointer-events:none;will-change:transform}
+.squirrel-heist img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center bottom;animation:none!important}
 .squirrel-heist .heist-carry{visibility:hidden}.squirrel-heist[data-phase=carry] .heist-empty,.squirrel-heist[data-phase=done] .heist-empty{visibility:hidden}.squirrel-heist[data-phase=carry] .heist-carry,.squirrel-heist[data-phase=done] .heist-carry{visibility:visible;animation:heist-catch .18s ease-out both!important}
 @keyframes heist-catch{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
 .preload-squirrel{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}

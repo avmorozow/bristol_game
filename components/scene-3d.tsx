@@ -3,6 +3,7 @@ import {forwardRef,useEffect,useImperativeHandle,useRef,useState} from 'react';
 import type {Status} from '@/lib/game/engine';
 import {TapLoot,type TapLootHandle} from '@/components/tap-loot';
 import {SquirrelHeist,type TheftCue} from '@/components/squirrel-heist';
+import {OriginalSquirrel} from '@/components/original-squirrel';
 import {theftFrame} from '@/lib/game/theft-timeline';
 export type SceneHandle={tap:()=>void};
 type Props={presentation?:'game'|'reward'|'loss';status:Status|'home';attemptId?:string;boosterUsed?:boolean;variant?:number;theft?:TheftCue|null;onTheftDone:()=>void;paused:boolean;onReady:(ready:boolean)=>void};
@@ -75,5 +76,5 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
   }catch{if(!dead){setFailed(true);live.current.onReady(true);}}})();
   return()=>{dead=true;cleanup();};
  },[]);
- return <div ref={host} className="scene-3d" aria-hidden="true" data-testid="scene-3d"><TapLoot ref={loot} active={props.status==='active'&&!props.paused}/>{props.theft&&<SquirrelHeist cue={props.theft} variant={props.variant??0} onDone={props.onTheftDone}/>}<img className="preload-squirrel" src="/assets/squirrel-empty.webp" alt=""/>{failed&&<div className={`scene-fallback fallback-${props.status}`}><img src="/assets/bag-3d.webp" alt=""/>{['loss_pending','lost'].includes(props.status)&&<img src="/assets/thief.png" alt=""/>}</div>}</div>;
+ return <div ref={host} className="scene-3d" aria-hidden="true" data-testid="scene-3d"><OriginalSquirrel home={props.status!=='active'} attemptId={props.attemptId} boosterUsed={props.boosterUsed}/><TapLoot ref={loot} active={props.status==='active'&&!props.paused}/>{props.theft&&<SquirrelHeist cue={props.theft} variant={props.variant??0} onDone={props.onTheftDone}/>}<img className="preload-squirrel" src="/assets/squirrel-empty.webp" alt=""/>{failed&&<div className={`scene-fallback fallback-${props.status}`}><img src="/assets/bag-3d.webp" alt=""/>{['loss_pending','lost'].includes(props.status)&&<img src="/assets/thief.png" alt=""/>}</div>}</div>;
 });
