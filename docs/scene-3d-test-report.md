@@ -120,3 +120,9 @@ Production-сборка и проверка TypeScript завершились у
 Добавлен автоматический тест временной шкалы: сохранение старого пакета во время подхода и отсутствие одновременного показа старого и переносимого пакетов.
 
 Итог: production-сборка, TypeScript и все 53 автоматические проверки прошли. Временный стенд удалён перед сборкой.
+
+## Success screen composition — 6 September 2026
+
+Replaced the oversized cashout table with a self-contained cream result card: complete live 3D bag, prominent reward, confirmed-wallet caption, and compact Continue action. The gameplay renderer is unmounted while the reward renderer owns its explicit art slot, so the bag is never hidden behind the result panel. The reward presentation omits the tiled floor. Kept the reward origin ref for confirmed coin flights and preserved the separate squirrel dialogs.
+
+Browser QA in the supervised preview: normal cashout at tap 119 (+2,241), final-ready and confirmed final reward (+2,350 with gift), gift collection, and Continue back to mode selection. Visually inspected desktop, 390×844, 320×568 and 844×390. Fixed the landscape overflow found during QA with a two-column composition; both result actions remain fully visible. The browser used the Canvas2D renderer of the same 3D geometry because WebGL is unavailable in this environment. Temporary responsive QA wrapper removed before the production build. Production build, TypeScript and all 53 existing tests passed.

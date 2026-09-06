@@ -132,3 +132,28 @@ body:has(.squirrel-popup[data-state=open]){overflow-x:clip}
 .preload-squirrel{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .tap-loot{position:absolute;inset:0;z-index:4;pointer-events:none}.loot-item{position:absolute;left:50%;top:31%;width:25px;height:25px;display:flex;align-items:center;justify-content:center;font-size:23px;line-height:1;opacity:0;will-change:transform,opacity;filter:drop-shadow(0 2px 2px #37131645)}.loot-item img{width:100%;height:100%;object-fit:contain}.loot-coin{width:24px;height:24px}
 @media(prefers-reduced-motion:reduce){.tap-loot,.squirrel-heist{display:none}}
+
+/* A self-contained win composition: the entire 3D bag owns its own layout slot. */
+body:has(.success-result[data-state=open]) [data-slot=dialog-overlay]{background:#210812b8;backdrop-filter:blur(5px)}
+.game-decision-positioner>.game-modal.scene-decision.success-result{background:#fff8ed;box-shadow:0 20px 80px #16030766;overflow:auto;border:1px solid #ffe5b4;border-radius:28px!important}
+.success-result .modal-body{background:transparent;padding:24px;gap:12px;border-radius:0;align-items:center}
+.success-result [data-slot=dialog-title]{font-size:25px;line-height:1.2;color:#5c2525;letter-spacing:-.6px;margin:0}
+.success-art{position:relative;width:100%;height:clamp(150px,27dvh,228px);flex-shrink:0;background:radial-gradient(ellipse at 50% 52%,#ffdb83a8,transparent 65%)}
+.success-art>.scene-3d{inset:0;contain:layout paint}
+.success-result .success-reward{display:flex;flex-direction:column;align-items:center;gap:3px;margin:0 0 6px}
+.success-reward strong{display:flex;align-items:center;justify-content:center;gap:9px;font-size:46px;font-weight:800;line-height:1.1;letter-spacing:-1.5px;color:#773d11;font-variant-numeric:tabular-nums}
+.success-reward .coin{width:44px;height:44px;margin:0;transform:none}
+.success-reward>span{font-size:13px;color:#8c725f}
+.success-result .game-button{width:100%;min-height:48px;font-size:15px;padding:12px;border-radius:16px}
+.success-result .success-gift{display:flex;align-items:center;justify-content:center;gap:6px;color:#753916;background:#f8e8ca;border-radius:12px;font-size:14px;font-weight:700;padding:5px 12px}
+.success-gift img{width:27px;height:27px;object-fit:contain}
+@media(max-height:640px){.success-result .modal-body{padding:18px;gap:8px}.success-art{height:150px}.success-result [data-slot=dialog-title]{font-size:22px}.success-reward strong{font-size:38px}.success-reward .coin{width:36px;height:36px}.success-result .game-button{min-height:44px}}
+@media(max-height:460px){.success-art{height:100px}.success-result .modal-body{padding:14px;gap:6px}.success-reward strong{font-size:32px}.success-result [data-slot=dialog-title]{font-size:20px}}
+@media(min-width:600px) and (max-height:460px){
+ .game-decision-positioner>.game-modal.scene-decision.success-result{max-width:500px!important}
+ .success-result .modal-body{display:grid;grid-template-columns:180px minmax(0,1fr);gap:8px 16px;padding:20px}
+ .success-result [data-slot=dialog-title]{grid-column:1/-1;text-align:center;margin-bottom:4px}
+ .success-result .success-art{grid-column:1;grid-row:2/span 4;height:190px;align-self:center}
+ .success-result .success-reward,.success-result .success-gift,.success-result .game-button{grid-column:2}
+ .success-result .field-error{grid-column:1/-1}
+}

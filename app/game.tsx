@@ -123,6 +123,7 @@ export default function Game(){
  useEffect(()=>{const timer=setInterval(()=>{if(document.visibilityState==='visible'&&live(current.current)&&!lock.current&&!pendingCommand.current&&!tapBacklog&&!cashoutLock.current)void send('heartbeat');},5000);return()=>clearInterval(timer);},[send,tapBacklog]);
  useEffect(()=>{const visible=()=>{audioEngine.current?.setHidden(document.visibilityState==='hidden');if(document.visibilityState==='hidden')tapQueue.current?.cancel();else if(!lock.current)void refresh();};const online=()=>{if(!pendingCommand.current&&!lock.current)void refresh();};document.addEventListener('visibilitychange',visible);window.addEventListener('online',online);return()=>{document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',online);};},[refresh]);
  const a=projectAttempt(state?.attempt,projectedTap),playing=!!a&&['active','loss_pending','final_ready'].includes(a.status),result=!!state&&!!a&&['won','lost','abandoned'].includes(a.status)&&!resultIsDismissed({...state,attempt:a},dismissed),onHome=!playing&&!result;
+ const successResult=!!a&&(a.status==='final_ready'||(result&&a.status==='won'));
  const heistActive=!!theftCue&&theftCue.attemptId===a?.id&&theftCue.tap===a.tap&&['loss_pending','lost'].includes(a.status);
  const blocked=busy||pending||loading||!sceneReady||decisionWaiting;
  async function start(kind=selectedMode){
@@ -200,7 +201,7 @@ export default function Game(){
      <Button variant="ghost" className="icon-button help" aria-label="Правила игры" onClick={()=>setModal('rules')}>?</Button>
     </div>
    </header>
-   <Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} theft={heistActive?theftCue:null} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>
+   {!successResult&&<Scene3D ref={sceneControl} status={onHome?'home':a?.status??'home'} attemptId={a?.id} boosterUsed={a?.boosterUsed} variant={squirrelVariant} theft={heistActive?theftCue:null} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>}
    <OriginalSquirrel home={onHome} attemptId={a?.id} boosterUsed={a?.boosterUsed}/>
    <SquirrelTaunt attemptId={a?.id} tap={a?.tap??0} active={!onHome&&a?.status==='active'&&!modal&&!motionHidden}/>
 
@@ -255,11 +256,20 @@ export default function Game(){
   </Dialog>
 
   {a&&(result||a.status==='final_ready')&&<Dialog open={!modal&&!heistActive} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
-   <GameDecisionDialog ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${a.status==='lost'?`squirrel-popup squirrel-path-${squirrelVariant}`:''}`} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
+   <GameDecisionDialog ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${successResult?'success-result':''} ${a.status==='lost'?`squirrel-popup squirrel-path-${squirrelVariant}`:''}`} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
     {a.status==='lost'&&<div className="squirrel-popup-art squirrel-already-here"><img src={A+'thief.png'} alt="Белка унесла пакет"/></div>}
-    <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Монеты забраны!'):a?.status==='lost'?'Вот это белка…':'До новой игры!'}</DialogTitle>
+    <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Отличный улов!'):a?.status==='lost'?'Вот это белка…':'До новой игры!'}</DialogTitle>
     <DialogDescription className="sr-only">{a.status==='lost'?'Незабранные монеты потеряны':'Результат попытки'}</DialogDescription>
-    {['won','final_ready'].includes(a?.status??'')&&<div className="reward-card" ref={rewardOrigin}><div><span>Монеты</span><strong>+ {fmt(a?.reward??0)} <Coin/></strong></div>{a?.tap===120&&<div><span>Подарок</span><strong>+ 1 <img className="gift-icon" src={A+'gift.png'} alt="подарок"/></strong></div>}</div>}
+    {successResult&&<>
+     <div className="success-art">
+      <Scene3D presentation="reward" status={a.status} attemptId={a.id} onTheftDone={finishTheft} paused={motionHidden||!!modal} onReady={setSceneReady}/>
+     </div>
+     <div className="success-reward" ref={rewardOrigin}>
+      <strong>+{fmt(a.reward)} <Coin size={46}/></strong>
+      <span>{a.status==='won'?'Монеты в кошельке':'Твоя награда'}</span>
+     </div>
+     {a.tap===120&&<div className="success-gift"><img src={A+'gift.png'} alt=""/> +1 подарок</div>}
+    </>}
 
     {a?.status==='final_ready'?<Action onClick={cashout} disabled={cashoutWaiting||(pending&&!busy)}>ЗАБРАТЬ НАГРАДУ</Action>:<><Action onClick={dismissResult}>ПРОДОЛЖИТЬ</Action>{a?.coupon&&<Action secondary onClick={()=>setModal('gifts')}>МОЙ ПОДАРОК</Action>}</>}
     {error&&<p className="field-error">{error}</p>}{pending&&!busy&&<Action secondary onClick={()=>void send('retry')} disabled={busy}>Проверить операцию</Action>}</div>
