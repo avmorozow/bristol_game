@@ -4,6 +4,7 @@ import {useState,useRef,useEffect,useCallback} from 'react';
 import {X,Volume2,VolumeX,Copy,History,ChevronRight,Loader2,Check,Gift,Settings2,Music2,Smartphone} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
+import {GameDecisionDialog} from '@/components/game-decision-dialog';
 import {Progress} from '@/components/ui/progress';
 import {Toaster,toast} from 'sonner';
 import {TapQueue} from '@/lib/game/tap-queue';
@@ -229,17 +230,17 @@ export default function Game(){
   </section>
 
   <Dialog open={a?.status==='loss_pending'&&!modal} onOpenChange={()=>{}}>
-   <DialogContent ref={lossFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();lossFocus.current?.focus();}} className={`game-modal scene-decision squirrel-popup squirrel-path-${squirrelVariant}`} showCloseButton={false} onEscapeKeyDown={e=>e.preventDefault()} onPointerDownOutside={e=>e.preventDefault()}>
+   <GameDecisionDialog ref={lossFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();lossFocus.current?.focus();}} className={`game-modal scene-decision squirrel-popup squirrel-path-${squirrelVariant}`} onEscapeKeyDown={e=>e.preventDefault()} onPointerDownOutside={e=>e.preventDefault()}>
     <div className="squirrel-popup-art"><img src={A+'thief.png'} alt="Белка забрала пакет"/></div>
     <div className="modal-body"><DialogTitle>Вернуть пакет?</DialogTitle><DialogDescription className="sr-only">Одно спасение за попытку</DialogDescription>
     <Action onClick={()=>void decide('booster')} disabled={decisionWaiting||(pending&&!busy)||(state?.balance??0)<50}>ОТОГНАТЬ ЗА 50 <Coin/></Action>
     {(state?.balance??0)<50&&<p className="field-error">Не хватает монет для спасения</p>}
     <Action secondary onClick={()=>void decide('lose')} disabled={decisionWaiting||(pending&&!busy)}>ЗАКОНЧИТЬ ИГРУ</Action>{error&&<p className="field-error">{error}</p>}{pending&&!busy&&<Action secondary onClick={()=>void send('retry')} disabled={busy}>Проверить операцию</Action>}</div>
-   </DialogContent>
+   </GameDecisionDialog>
   </Dialog>
 
   {a&&(result||a.status==='final_ready')&&<Dialog open={!modal} onOpenChange={open=>{if(!open&&a?.status!=='final_ready')dismissResult();}}>
-   <DialogContent ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${a.status==='lost'?`squirrel-popup squirrel-path-${squirrelVariant}`:''}`} showCloseButton={false} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
+   <GameDecisionDialog ref={resultFocus} tabIndex={-1} onOpenAutoFocus={e=>{e.preventDefault();resultFocus.current?.focus();}} className={`game-modal scene-decision ${a.status==='lost'?`squirrel-popup squirrel-path-${squirrelVariant}`:''}`} onEscapeKeyDown={e=>{if(a?.status==='final_ready')e.preventDefault();}} onPointerDownOutside={e=>{if(a?.status==='final_ready')e.preventDefault();}}>
     {a.status==='lost'&&<div className={`squirrel-popup-art ${a.boosterUsed?'':'squirrel-already-here'}`}><img src={A+'thief.png'} alt="Белка унесла пакет"/></div>}
     <div className="modal-body"><DialogTitle>{a?.status==='final_ready'?'Пакет собран!':a?.status==='won'?(a.tap===120?'Пакет собран!':'Монеты забраны!'):a?.status==='lost'?'Вот это белка…':'До новой игры!'}</DialogTitle>
     <DialogDescription className="sr-only">{a.status==='lost'?'Незабранные монеты потеряны':'Результат попытки'}</DialogDescription>
@@ -247,7 +248,7 @@ export default function Game(){
 
     {a?.status==='final_ready'?<Action onClick={cashout} disabled={cashoutWaiting||(pending&&!busy)}>ЗАБРАТЬ НАГРАДУ</Action>:<><Action onClick={dismissResult}>ПРОДОЛЖИТЬ</Action>{a?.coupon&&<Action secondary onClick={()=>setModal('gifts')}>МОЙ ПОДАРОК</Action>}</>}
     {error&&<p className="field-error">{error}</p>}{pending&&!busy&&<Action secondary onClick={()=>void send('retry')} disabled={busy}>Проверить операцию</Action>}</div>
-   </DialogContent>
+   </GameDecisionDialog>
   </Dialog>}
 
   {modal&&<Dialog open={true} onOpenChange={open=>{if(!open&&modal==='tutorial')void nextTutorial(true);else if(!open)setModal(null);}}>
