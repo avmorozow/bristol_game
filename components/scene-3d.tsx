@@ -32,7 +32,7 @@ export const Scene3D=forwardRef<SceneHandle,Props>(function Scene3D(props,ref){
     m.bag.visible=true;m.bag.position.set(0,idle,0);m.bag.rotation.set(0,-.24+Math.sin(time*.7)*.08,reduced.matches?0:lean.current);m.bag.scale.set(1+impulse.current*.035,1-impulse.current*.05,1+impulse.current*.025);
     m.squirrel.visible=false;m.squirrel.scale.setScalar(.92);m.squirrel.rotation.set(0,-side*.23,0);m.squirrel.position.set(side*3.8,0,0);
     const afraid=['steal','caught','escape'].includes(phase);m.fear.visible=afraid;m.smile.visible=!afraid;m.tooth.visible=false;m.eyes.forEach(e=>e.scale.y=afraid?.78:.66);m.brows.forEach((b,i)=>{b.position.y=afraid?.1:0;b.rotation.z=afraid?(i===0?-.12:.12):0;});m.bagArms.forEach((arm,i)=>arm.rotation.z=afraid?(i===0?-1.85:1.85):Math.sin(time*2+i)*.05);m.squirrelArms.forEach((arm,i)=>arm.rotation.z=(i===0?-.35:.35));m.squirrelFeet.forEach((foot,i)=>foot.rotation.x=0);m.tail.rotation.z=reduced.matches?0:Math.sin(time*2)*.07;m.head.rotation.z=reduced.matches?0:Math.sin(time*1.8)*.025;
-    if(p.status==='home'){m.bag.position.x=-.48;m.bag.scale.multiplyScalar(1.08);m.squirrel.visible=true;m.squirrel.position.set(.82,0,-.48);m.squirrel.scale.setScalar(.7);m.squirrel.rotation.y=-.5;}
+    if(p.status==='home'){m.bag.position.x=0;m.bag.scale.multiplyScalar(1.08);}
     const hold=()=>{m.squirrel.visible=true;m.squirrel.position.set(side*.5,.03,0);m.bag.position.set(side*-.25,.47,.53);m.bag.scale.setScalar(.64);m.bag.rotation.set(0,-side*.2,side*-.17);m.squirrelArms[side===1?0:1].rotation.z=side===1?-1.3:1.3;};
     if(phase==='steal'){
      m.squirrel.visible=true;const approach=smooth(t/.45);m.squirrel.position.set(side*(2.55-2.05*approach),reduced.matches?0:Math.abs(Math.sin(t*18))*.13,variant===2?-.65*(1-approach):0);
