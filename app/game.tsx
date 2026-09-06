@@ -62,6 +62,7 @@ export default function Game(){
  const [dismissed,setDismissed]=useState<ResultDismissal|null>(null),[credit,setCredit]=useState<WalletCredit|null>(null);
  const walletElement=useRef<HTMLButtonElement|null>(null),rewardOrigin=useRef<HTMLDivElement|null>(null),scoreOrigin=useRef<HTMLDivElement|null>(null);
  const finishCredit=useCallback(()=>setCredit(null),[]);
+ const progressElement=useRef<HTMLDivElement|null>(null);
  const lossFocus=useRef<HTMLDivElement|null>(null),resultFocus=useRef<HTMLDivElement|null>(null);
  const current=useRef<State|null>(null),lock=useRef(false),pendingCommand=useRef<Command|null>(null),particleId=useRef(0);
  const apply=useCallback((s:State)=>{if(!current.current||s.referralCode!==current.current.referralCode||s.revision>=current.current.revision){if(s.attempt?.id!==current.current?.attempt?.id){setProjectedTap(s.attempt?.tap??0);setTapBacklog(0);setParticles([]);}const received=newWalletCredit(current.current,s);if(received)setCredit(received);current.current=s;serverOffset.current=s.serverTime-Date.now();setState(s);}},[]);
@@ -150,7 +151,13 @@ export default function Game(){
    bagElement.current?.animate?.([{transform:'scale(1.07,.9) rotate(-3deg)'},{transform:'scale(.97,1.05) rotate(2deg)'},{transform:'scale(1)'}],{duration:190,easing:'cubic-bezier(.2,.8,.3,1)'});
   }
   if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){const score=scoreOrigin.current?.querySelector('span');score?.getAnimations().forEach(animation=>animation.cancel());score?.animate([{transform:'scale(1.055)'},{transform:'scale(1)'}],{duration:170,easing:'ease-out'});}
-  sound(['loss_pending','lost'].includes(after.status)?'loss':after.status==='final_ready'?'win':'tap');
+  const successful=after.status==='active'||after.status==='final_ready';
+  if(successful&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+   const track=progressElement.current;track?.getAnimations().forEach(animation=>animation.cancel());
+   track?.animate([{filter:'brightness(1.65)',transform:'scaleY(1.18)'},{filter:'brightness(1)',transform:'scaleY(1)'}],{duration:after.tap%20===0?300:140,easing:'ease-out'});
+   if(after.tap%20===0){const gift=scoreOrigin.current?.parentElement?.querySelector('.goal-gift');gift?.getAnimations().forEach(animation=>animation.cancel());gift?.animate([{transform:'scale(1)'},{transform:'scale(1.3)',offset:.35},{transform:'scale(1)'}],{duration:360,easing:'ease-out'});}
+  }
+  audioEngine.current?.play(['loss_pending','lost'].includes(after.status)?'loss':after.status==='final_ready'?'win':'tap',after.tap);
  }
  function toggleSound(){const next=!muted;setMuted(next);audioEngine.current?.configure({muted:next,music,effects});if(!next)audioEngine.current?.unlock();try{localStorage.setItem('bristol-sound',next?'off':'on');}catch{}}
  function preference(kind:'music'|'effects'|'haptics',value:boolean){if(kind==='music')setMusic(value);if(kind==='effects')setEffects(value);if(kind==='haptics'){setHaptics(value);vibrateTap(value);}try{localStorage.setItem('bristol-'+kind,value?'on':'off');}catch{}}
@@ -211,8 +218,11 @@ export default function Game(){
     <div className="score-zone">
      <p className="score-caption">{a?.status==='won'?'Забрано':a?.status==='lost'?'Упущено':'На кону'}</p>
      <div ref={scoreOrigin} className={`score ${preview.reward>=1000?'score-small':''} ${preview.pending?'score-pending':''}`}><span data-testid="tap-score" aria-label={preview.pending?'Предварительная сумма':'Подтверждённая сумма'}>{fmt(preview.reward)}</span><Coin size={64}/></div>
-     <div className="progress-info"><span>{preview.tap} / 120 тапов</span><span><img src={A+'gift.png'} alt=""/></span></div>
-     <Progress value={preview.tap/120*100} className="game-progress" aria-label="Прогресс к подарку"/>
+     <div className="progress-info"><span><b data-testid="goal-tap">{preview.tap}</b> / 120 тапов</span><span className={`goal-gift ${preview.tap>=100?'goal-near':''}`}><img src={A+'gift.png'} alt=""/></span></div>
+     <div ref={progressElement} className="goal-track">
+      <Progress value={preview.tap/120*100} className="game-progress" aria-label="Прогресс к подарку"/>
+      <div className="goal-checkpoints" aria-hidden="true">{[20,40,60,80,100].map(n=><i key={n} className={preview.tap>=n?'reached':''} style={{left:`${n/120*100}%`}}/>)}</div>
+     </div>
     </div>
     <div className="tap-area" key={a?.id}>
      <button ref={bagElement} className="bag-button scene-tap-target" onPointerDown={e=>{if(e.button===0)tap();}} onClick={e=>{if(e.detail===0)tap();}} disabled={tapBlocked||a?.status!=='active'||preview.tap>=120} aria-label="Нажать на пакет"><span className="sr-only">Нажать на 3D-пакет</span></button>

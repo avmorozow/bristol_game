@@ -210,7 +210,7 @@ test('haptics uses one short pulse and tolerates disabled, unsupported or reject
 });
 function audioHarness(){
  const oscillators=[],gains=[];const param=()=>({value:0,changes:[],setValueAtTime(v){this.changes.push(v);},setTargetAtTime(v){this.changes.push(v);},exponentialRampToValueAtTime(v){this.changes.push(v);}});
- const ctx={state:'suspended',currentTime:0,destination:{},createGain(){const n={gain:param(),connect(){},disconnect(){}};gains.push(n);return n;},createOscillator(){const o={frequency:param(),connect(){},disconnect(){},start(){},stop(){this.onended?.();}};oscillators.push(o);return o;},async resume(){this.state='running';},async close(){this.state='closed';}};
+ const ctx={state:'suspended',currentTime:0,destination:{},createGain(){const n={gain:param(),connect(){},disconnect(){}};gains.push(n);return n;},createOscillator(){const o={frequency:param(),connect(){},disconnect(){},start(time){this.startedAt=time;},stop(){this.onended?.();}};oscillators.push(o);return o;},async resume(){this.state='running';},async close(){this.state='closed';}};
  const audio=new GameAudio(()=>ctx);return {audio,ctx,oscillators,gains};
 }
 test('music starts after interaction, pauses when hidden or muted, and effects obey preferences',async()=>{
@@ -225,6 +225,19 @@ test('music starts after interaction, pauses when hidden or muted, and effects o
 });
 
 const resultView=await import(pathToFileURL(join(temp,'lib/game/result-view.mjs')));
+test('rapid successful taps sound immediately, rise with progress and reset for a new attempt',async()=>{
+ const h=audioHarness();try{
+  h.audio.configure({muted:false,music:false,effects:true});h.audio.unlock();await nextTurn();h.ctx.currentTime=4;
+  let previous=0,first=0;
+  for(let tap=1;tap<=119;tap++){
+   const n=h.oscillators.length;h.audio.play('tap',tap);const voices=h.oscillators.slice(n);
+   assert.equal(voices.length,tap%20===0?5:2);assert.equal(voices[0].startedAt,4,'main tap is never queued behind music');
+   const frequency=voices[0].frequency.changes[0];assert.ok(frequency>previous);previous=frequency;if(tap===1)first=frequency;
+  }
+  const n=h.oscillators.length;h.audio.play('tap',1);assert.equal(h.oscillators[n].frequency.changes[0],first);
+  h.audio.configure({muted:false,music:true,effects:false});const mutedCount=h.oscillators.length;h.audio.play('tap',20);assert.equal(h.oscillators.length,mutedCount,'milestones obey the effects preference');
+ }finally{h.audio.dispose();}
+});
 test('continue is a local view change, scoped to a settled attempt and guest profile',()=>{
  let s={...step(engine.initialPlayer(),'start'),referralCode:'guest-a'};assert.equal(resultView.dismissSettledResult(s),null);
  s={...step(step(s,'tap'),'cashout'),referralCode:'guest-a'};const original=structuredClone(s),dismissed=resultView.dismissSettledResult(s);
